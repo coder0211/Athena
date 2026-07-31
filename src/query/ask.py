@@ -85,14 +85,22 @@ _ANSWER_BUSINESS = (
     + "HOW TO ANSWER (audience is NON-TECHNICAL — this matters most):\n"
     "- Answer in the user's language, in plain business terms. Avoid code jargon; if a "
     "technical term is unavoidable, explain it in a few words.\n"
+    "- NEVER show raw code identifiers in the body — no node IDs, class/function names, "
+    "variable names, or qualified names (e.g. not 'PaymentService.charge' but 'the step "
+    "that charges the card'). Translate every internal name into the product concept a "
+    "business reader recognises (customer, order, refund, ticket).\n"
     "- Start with a 1–2 sentence plain-language summary of what happens.\n"
     "- Then tell the flow as a numbered, step-by-step story: 'First the user…, then the "
     "system…, if X the app…'. Describe WHAT happens and WHY (the business rules and "
     "conditions), not the code syntax.\n"
     "- Call out the important business rules, validations, limits, and the behaviour on "
     "success vs failure / edge cases.\n"
+    "- Where a rule or outcome is subtle, add a short concrete example ('e.g. if the card "
+    "is declined, the customer sees … and the order stays unpaid') — it lands better than "
+    "an abstract rule.\n"
     "- Keep code to a minimum. Prefer describing the logic over pasting code.\n"
-    "- End with a short 'Where this lives:' line naming the app (repo) and file(s)."
+    "- End with a short 'Where this lives:' line naming the app (and screen/feature) in "
+    "plain terms; a file path may follow but keep it brief and secondary."
     + _COMPLETENESS
 )
 
