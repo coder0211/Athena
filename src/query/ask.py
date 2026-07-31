@@ -15,6 +15,17 @@ from query.engine import GraphQuery
 
 MODEL = os.environ.get("ATHENA_ASK_MODEL", "gpt-4o")
 
+# Generation params (env-overridable). A lower temperature makes the tool-using
+# loop converge faster (fewer wandering round-trips); max_tokens caps the final
+# answer; parallel_tool_calls lets the model batch lookups into one turn.
+TEMPERATURE = float(os.environ.get("ATHENA_TEMPERATURE", "0.3"))
+MAX_TOKENS = int(os.environ.get("ATHENA_MAX_TOKENS", "2048"))
+_GEN_PARAMS = {
+    "temperature": TEMPERATURE,
+    "max_tokens": MAX_TOKENS,
+    "parallel_tool_calls": True,
+}
+
 # Shared investigation instructions (same for both audiences).
 _INVESTIGATE = (
     "You have a code knowledge graph for navigation and tools to read the real "
@@ -38,6 +49,10 @@ _INVESTIGATE = (
     "hypothesis until the evidence is solid. Prefer one more tool call over a guess.\n"
     "- Decompose non-trivial questions into sub-questions and resolve each from the code "
     "before you compose the overall answer.\n"
+    "- Be efficient with round-trips: batch INDEPENDENT lookups into a single turn "
+    "(e.g. issue several search_symbols calls at once, or search different repos "
+    "together) instead of one tool per turn, and go straight from finding a symbol to "
+    "read_source. Fewer round-trips means a faster answer.\n"
     "- VERIFY before answering: every statement you make must trace to code you actually "
     "read; if a claim is not backed by what you saw, verify it or drop it.\n"
     "- Then output ONLY the finished, reader-facing answer — do not reveal these steps, "
@@ -92,8 +107,7 @@ _ANSWER_TECHNICAL = (
     "- Include short, relevant code snippets when they clarify, each with its file path.\n"
     "- Cite repo and file path (with line numbers when known) for every key part.\n"
     "- Note important edge cases, error handling, side effects, and state changes.\n"
-    "- Don't over-explain common concepts; assume software fluency."
-    + _COMPLETENESS
+    "- Don't over-explain common concepts; assume software fluency." + _COMPLETENESS
 )
 
 
@@ -304,6 +318,23 @@ def _init_messages(
     return messages
 
 
+def _run_tool(engine: GraphQuery, name: str, arguments: str, cache: dict) -> tuple:
+    """Execute one tool call, memoized within a single request so repeated
+    (name, args) pairs don't recompute. Returns (parsed_args, output)."""
+    key = (name, arguments or "")
+    if key in cache:
+        return cache[key]
+    method = getattr(engine, name, None)
+    try:
+        args = json.loads(arguments or "{}")
+        output = method(**args) if method else {"error": f"unknown tool {name}"}
+    except Exception as e:  # surface tool errors to the model, don't crash
+        args, output = {}, {"error": f"{type(e).__name__}: {e}"}
+    result = (args if isinstance(args, dict) else {}, output)
+    cache[key] = result
+    return result
+
+
 def answer(
     question: str,
     engine: GraphQuery,
@@ -328,6 +359,7 @@ def answer(
     client = OpenAI()
     messages = _init_messages(question, engine, history, scope, mode, lang)
     steps: list[dict] = []
+    tool_cache: dict = {}
     max_steps = config.int_env("ATHENA_MAX_STEPS", 8)
 
     for _ in range(max_steps):
@@ -337,6 +369,7 @@ def answer(
                 messages=messages,
                 tools=_TOOLS,
                 tool_choice="auto",
+                **_GEN_PARAMS,
             )
         except Exception as e:  # rate limits / API errors → clean message, no 500
             name = type(e).__name__
@@ -355,22 +388,10 @@ def answer(
 
         messages.append(msg)  # assistant turn carrying the tool_calls
         for call in msg.tool_calls:
-            method = getattr(engine, call.function.name, None)
-            try:
-                args = json.loads(call.function.arguments or "{}")
-                output = (
-                    method(**args)
-                    if method
-                    else {"error": f"unknown tool {call.function.name}"}
-                )
-            except Exception as e:  # surface tool errors to the model, don't crash
-                output = {"error": f"{type(e).__name__}: {e}"}
-            steps.append(
-                {
-                    "tool": call.function.name,
-                    "input": args if isinstance(args, dict) else {},
-                }
+            args, output = _run_tool(
+                engine, call.function.name, call.function.arguments, tool_cache
             )
+            steps.append({"tool": call.function.name, "input": args})
             messages.append(
                 {
                     "role": "tool",
@@ -401,7 +422,9 @@ def answer_stream(
       {'steps': [...], 'done': True} | {'error': msg}
     """
     if not is_available():
-        yield {"unavailable": "OPENAI_API_KEY not set — natural-language Q&A is disabled."}
+        yield {
+            "unavailable": "OPENAI_API_KEY not set — natural-language Q&A is disabled."
+        }
         return
 
     from openai import OpenAI  # lazy import (SDK/key optional for the rest of the app)
@@ -409,6 +432,7 @@ def answer_stream(
     client = OpenAI()
     messages = _init_messages(question, engine, history, scope, mode, lang)
     steps: list[dict] = []
+    tool_cache: dict = {}
     max_steps = config.int_env("ATHENA_MAX_STEPS", 8)
 
     for _ in range(max_steps):
@@ -419,6 +443,7 @@ def answer_stream(
                 tools=_TOOLS,
                 tool_choice="auto",
                 stream=True,
+                **_GEN_PARAMS,
             )
         except Exception as e:  # rate limits / API errors → clean message, no crash
             name = type(e).__name__
@@ -443,7 +468,9 @@ def answer_stream(
                 content_parts.append(delta.content)
                 yield {"delta": delta.content}
             for tc in getattr(delta, "tool_calls", None) or []:
-                slot = tool_calls.setdefault(tc.index, {"id": None, "name": "", "args": ""})
+                slot = tool_calls.setdefault(
+                    tc.index, {"id": None, "name": "", "args": ""}
+                )
                 if tc.id:
                     slot["id"] = tc.id
                 if tc.function and tc.function.name:
@@ -472,15 +499,8 @@ def answer_stream(
             }
         )
         for s in ordered:
-            method = getattr(engine, s["name"], None)
-            try:
-                args = json.loads(s["args"] or "{}")
-                output = (
-                    method(**args) if method else {"error": f"unknown tool {s['name']}"}
-                )
-            except Exception as e:
-                args, output = {}, {"error": f"{type(e).__name__}: {e}"}
-            steps.append({"tool": s["name"], "input": args if isinstance(args, dict) else {}})
+            args, output = _run_tool(engine, s["name"], s["args"], tool_cache)
+            steps.append({"tool": s["name"], "input": args})
             yield {"tool": s["name"]}
             messages.append(
                 {

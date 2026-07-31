@@ -49,6 +49,11 @@ class GraphQuery:
         self.store = NetworkXStore.open(self.graph_path)
         self.g: nx.MultiDiGraph = self.store.g
         self.workspace = load_workspace()
+        # Derived-data caches — safe because the graph is immutable for this
+        # instance (api.get_engine() rebuilds a fresh one when the files change).
+        self._repos_cache: list[str] | None = None
+        self._comm_sizes: Counter | None = None
+        self._name_index: list[tuple] | None = None
         self._overlay_workspace()
 
     # --- workspace overlay (repo metadata + inter-repo relations) ---------
@@ -56,7 +61,7 @@ class GraphQuery:
         """Add a Repo node per repo (with curated metadata) and a typed edge per
         declared relation, into the in-memory graph — no rebuild needed."""
         meta = self.workspace.get("repos", {})
-        names = set(self.repos()) | set(meta.keys())
+        names = set(self._distinct_repos()) | set(meta.keys())
         for name in names:
             m = meta.get(name, {})
             self.g.add_node(
@@ -110,12 +115,40 @@ class GraphQuery:
                 return nid
         return None
 
-    # --- queries ---------------------------------------------------------
-    def repos(self) -> list[str]:
-        """Distinct repo names present in the graph (data-driven, not hardcoded)."""
+    # --- derived-data caches (graph is immutable per instance) -----------
+    def _distinct_repos(self) -> list[str]:
         return sorted(
             {a.get("repo") for _, a in self.g.nodes(data=True) if a.get("repo")}
         )
+
+    def _community_sizes(self) -> Counter:
+        """Member count per Community node — scanned once, then reused."""
+        if self._comm_sizes is None:
+            c: Counter = Counter()
+            for _, dst, a in self.g.edges(data=True):
+                if a.get("role") == "community":
+                    c[dst] += 1
+            self._comm_sizes = c
+        return self._comm_sizes
+
+    def _search_rows(self) -> list[tuple]:
+        """Prebuilt (id, name_lower, repo, type) index so search_symbols does a
+        light list scan instead of walking the graph dict on every call."""
+        if self._name_index is None:
+            rows = []
+            for nid, a in self.g.nodes(data=True):
+                name = a.get("name")
+                if name:
+                    rows.append((nid, str(name).lower(), a.get("repo"), a.get("type")))
+            self._name_index = rows
+        return self._name_index
+
+    # --- queries ---------------------------------------------------------
+    def repos(self) -> list[str]:
+        """Distinct repo names present in the graph (data-driven, not hardcoded)."""
+        if self._repos_cache is None:
+            self._repos_cache = self._distinct_repos()
+        return self._repos_cache
 
     def repos_info(self) -> list[dict]:
         """Per-repo metadata + code node counts (workspace layer)."""
@@ -156,13 +189,9 @@ class GraphQuery:
         repos = Counter(
             a.get("repo") for _, a in self.g.nodes(data=True) if a.get("repo")
         )
-        comm_size: Counter = Counter()
-        for _, dst, a in self.g.edges(data=True):
-            if a.get("role") == "community":
-                comm_size[dst] += 1
         top = [
             {"name": self.g.nodes[c].get("name"), "members": n}
-            for c, n in comm_size.most_common(15)
+            for c, n in self._community_sizes().most_common(15)
         ]
         return {
             "nodes": self.g.number_of_nodes(),
@@ -181,12 +210,12 @@ class GraphQuery:
     ) -> list[dict]:
         needle = query.lower()
         out = []
-        for nid, a in self.g.nodes(data=True):
-            if needle not in str(a.get("name", "")).lower():
+        for nid, name_l, r, ty in self._search_rows():
+            if needle not in name_l:
                 continue
-            if repo and a.get("repo") != repo:
+            if repo and r != repo:
                 continue
-            if type and a.get("type") != type:
+            if type and ty != type:
                 continue
             out.append(self._view(nid))
             if len(out) >= limit:
@@ -318,13 +347,9 @@ class GraphQuery:
         return {"length": len(nodes) - 1, "path": steps}
 
     def list_communities(self, query: str | None = None, limit: int = 30) -> list[dict]:
-        size: Counter = Counter()
-        for _, dst, a in self.g.edges(data=True):
-            if a.get("role") == "community":
-                size[dst] += 1
         needle = query.lower() if query else None
         out = []
-        for cid, n in size.most_common():
+        for cid, n in self._community_sizes().most_common():
             name = self.g.nodes[cid].get("name", "")
             if needle and needle not in str(name).lower():
                 continue
