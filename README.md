@@ -1,4 +1,4 @@
-# 🦉 Athena
+<h1><img src="example/logo-owl-solid.svg" alt="" width="30" height="30" align="absmiddle" /> Athena</h1>
 
 **Turn your Git repositories into a queryable code knowledge graph — then ask
 questions about how the product works in plain language.**
