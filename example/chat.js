@@ -27,7 +27,8 @@ async function apiGet(path) {
 let history = []; // [{role:'user'|'assistant', content}]
 let busy = false;
 let mode = localStorage.getItem("athena_mode") || "business"; // 'business' | 'technical'
-let lang = localStorage.getItem("athena_lang") || "auto"; // 'auto' | 'en' | 'vi'
+let lang = localStorage.getItem("athena_lang");
+if (lang !== "en" && lang !== "vi") lang = "en"; // 'auto' removed — default to English
 let REPOS = []; // repo names, for @ mentions
 let REPO_META = {}; // {name: {description, role, tags}} for @ mention hints
 let scopeRepos = []; // ["a", ...]
@@ -120,14 +121,14 @@ async function send(text) {
     });
     typing.remove();
     if (!r.available) {
-      addAssistant(r.reason || "Q&A is unavailable.", null, true);
+      addAssistant(r.reason || t().unavailable, null, true);
     } else {
       addAssistant(r.answer, r.steps);
       history.push({ role: "assistant", content: r.answer });
     }
   } catch (e) {
     typing.remove();
-    addAssistant("Error: " + e.message, null, true);
+    addAssistant(t().errorPrefix + e.message, null, true);
   } finally {
     setBusy(false);
     $("input").focus();
@@ -198,7 +199,7 @@ async function updateMentions() {
       renderMentionList([]);
     }
   } else {
-    renderMentionList([{ label: "Type a symbol name…", kind: "hint" }]);
+    renderMentionList([{ label: t().mentionHint, kind: "hint" }]);
   }
 }
 function renderMentionList(items) {
@@ -311,7 +312,7 @@ function lockMode() {
   modeLocked = true;
   const tog = $("mode-toggle");
   tog.classList.add("locked");
-  tog.title = "Locked for this conversation — start a new chat to switch modes.";
+  tog.title = t().modeLocked;
   document.querySelectorAll(".mode-btn").forEach((b) => (b.disabled = true));
 }
 applyModeTheme();
@@ -327,45 +328,107 @@ document.querySelectorAll(".mode-btn").forEach((b) => {
   };
 });
 
-// --- response language ---
-$("lang-select").value = lang;
-$("lang-select").onchange = () => {
-  lang = $("lang-select").value;
-  localStorage.setItem("athena_lang", lang);
+// --- i18n: every static string lives here, so changing the language re-skins
+// the whole chat UI — headings, starter prompts, buttons, placeholder, tip,
+// tooltips and banners. Welcome copy is also split by Business/Technical mode. ---
+const I18N = {
+  en: {
+    business: "Business",
+    technical: "Technical",
+    newChat: "New chat",
+    send: "Send",
+    placeholder: "Ask anything…  @repo or #symbol to narrow scope · Enter to send",
+    tip: 'Tip: type <b>@</b> to focus on one app, <b>#</b> to focus on a specific feature/screen.',
+    modeLocked: "Locked for this conversation — start a new chat to switch modes.",
+    mentionHint: "Type a symbol name…",
+    unavailable: "Q&A is unavailable.",
+    errorPrefix: "Error: ",
+    bannerNotBuilt: "⚠️ Graph not built yet — build it in the Manage app first.",
+    bannerAskOff: "⚠️ Q&A is off — set OPENAI_API_KEY and restart the server.",
+    bannerUnreachable: "API unreachable.",
+    copy: {
+      business: {
+        title: "Understand how the product works",
+        desc: "Ask in plain language — it reads the real code and explains the business flow, step by step. No technical background needed.",
+        suggestions: [
+          "How does a customer book and pay for a ticket?",
+          "Walk me through the checkout process step by step.",
+          "What happens when a payment fails?",
+          "What are the different apps and what does each one do?",
+        ],
+      },
+      technical: {
+        title: "Understand how the code works",
+        desc: "Ask in plain language — it reads the real code and explains the implementation: call paths, data flow, and where each piece lives.",
+        suggestions: [
+          "Trace the request flow when a ticket is booked.",
+          "Which functions handle payment processing?",
+          "How is state managed through the checkout flow?",
+          "What are the main services and how do they depend on each other?",
+        ],
+      },
+    },
+  },
+  vi: {
+    business: "Nghiệp vụ",
+    technical: "Kỹ thuật",
+    newChat: "Trò chuyện mới",
+    send: "Gửi",
+    placeholder: "Hỏi bất cứ điều gì…  @repo hoặc #symbol để thu hẹp phạm vi · Enter để gửi",
+    tip: 'Mẹo: gõ <b>@</b> để tập trung vào một ứng dụng, <b>#</b> để tập trung vào một tính năng/màn hình cụ thể.',
+    modeLocked: "Đã khoá cho cuộc trò chuyện này — mở trò chuyện mới để đổi chế độ.",
+    mentionHint: "Nhập tên một symbol…",
+    unavailable: "Q&A hiện không khả dụng.",
+    errorPrefix: "Lỗi: ",
+    bannerNotBuilt: "⚠️ Chưa dựng graph — hãy dựng nó trong app Manage trước.",
+    bannerAskOff: "⚠️ Q&A đang tắt — đặt OPENAI_API_KEY rồi khởi động lại server.",
+    bannerUnreachable: "Không kết nối được API.",
+    copy: {
+      business: {
+        title: "Hiểu sản phẩm hoạt động thế nào",
+        desc: "Hỏi bằng ngôn ngữ đời thường — hệ thống đọc mã nguồn thật và giải thích luồng nghiệp vụ theo từng bước. Không cần kiến thức kỹ thuật.",
+        suggestions: [
+          "Khách hàng đặt và thanh toán vé như thế nào?",
+          "Hướng dẫn tôi quy trình thanh toán theo từng bước.",
+          "Điều gì xảy ra khi thanh toán thất bại?",
+          "Có những ứng dụng nào và mỗi ứng dụng làm gì?",
+        ],
+      },
+      technical: {
+        title: "Hiểu mã nguồn hoạt động thế nào",
+        desc: "Hỏi bằng ngôn ngữ đời thường — hệ thống đọc mã nguồn thật và giải thích cách cài đặt: luồng gọi hàm, luồng dữ liệu, và vị trí từng thành phần.",
+        suggestions: [
+          "Lần theo luồng xử lý khi một vé được đặt.",
+          "Những hàm nào xử lý việc thanh toán?",
+          "Trạng thái được quản lý ra sao xuyên suốt luồng thanh toán?",
+          "Các service chính là gì và chúng phụ thuộc lẫn nhau thế nào?",
+        ],
+      },
+    },
+  },
 };
+const t = () => I18N[lang] || I18N.en;
 
-// --- startup: availability check + suggestions ---
-// Welcome copy + starter prompts are mode-specific, so they stay in sync when
-// the user flips Business ⇄ Technical.
-const COPY = {
-  business: {
-    title: "Understand how the product works",
-    desc: "Ask in plain language — it reads the real code and explains the business flow, step by step. No technical background needed.",
-    suggestions: [
-      "How does a customer book and pay for a ticket?",
-      "Walk me through the checkout process step by step.",
-      "What happens when a payment fails?",
-      "What are the different apps and what does each one do?",
-    ],
-  },
-  technical: {
-    title: "Understand how the code works",
-    desc: "Ask in plain language — it reads the real code and explains the implementation: call paths, data flow, and where each piece lives.",
-    suggestions: [
-      "Trace the request flow when a ticket is booked.",
-      "Which functions handle payment processing?",
-      "How is state managed through the checkout flow?",
-      "What are the main services and how do they depend on each other?",
-    ],
-  },
-};
+// Re-skin all static chrome for the current language.
+function applyLang() {
+  document.documentElement.lang = lang;
+  const s = t();
+  document.querySelectorAll(".mode-btn").forEach((b) => (b.textContent = s[b.dataset.mode]));
+  $("new-chat").textContent = s.newChat;
+  $("send").textContent = s.send;
+  $("input").placeholder = s.placeholder;
+  if (modeLocked) $("mode-toggle").title = s.modeLocked;
+  renderEmpty();
+}
 
 function renderEmpty() {
   const e = $("empty");
   if (!e) return; // gone once the conversation starts
-  const c = COPY[mode] || COPY.business;
+  const s = t();
+  const c = s.copy[mode] || s.copy.business;
   e.querySelector("h2").textContent = c.title;
   e.querySelector("p").textContent = c.desc;
+  e.querySelector(".chat-empty-tip").innerHTML = s.tip;
   const box = $("suggestions");
   box.innerHTML = "";
   c.suggestions.forEach((q) => {
@@ -375,17 +438,25 @@ function renderEmpty() {
     box.append(chip);
   });
 }
+
+// --- response language: whole UI follows the choice ---
+$("lang-select").value = lang;
+$("lang-select").onchange = () => {
+  lang = $("lang-select").value;
+  localStorage.setItem("athena_lang", lang);
+  applyLang();
+};
 async function init() {
   try {
     const s = await apiGet("/api/status");
     REPOS = Object.keys((s.graph && s.graph.by_repo) || {}).sort();
     if (!s.built) {
-      showBanner("⚠️ Graph not built yet — build it in the Manage app first.");
+      showBanner(t().bannerNotBuilt);
     } else if (!s.ask_available) {
-      showBanner("⚠️ Q&A is off — set OPENAI_API_KEY and restart the server.");
+      showBanner(t().bannerAskOff);
     }
   } catch {
-    showBanner("API unreachable.");
+    showBanner(t().bannerUnreachable);
   }
   try {
     const ws = await apiGet("/api/workspace"); // repo descriptions for @ hints
@@ -395,7 +466,7 @@ async function init() {
     /* workspace optional */
   }
   renderScope();
-  renderEmpty();
+  applyLang();
   $("input").focus();
 }
 function showBanner(msg) {
