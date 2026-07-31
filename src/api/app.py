@@ -12,6 +12,7 @@ Everything the UI needs is under /api/*; the example SPA (example/) is served fr
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import threading
@@ -21,6 +22,7 @@ from pathlib import Path
 
 import yaml
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -259,6 +261,33 @@ def ask(req: AskRequest) -> dict:
         scope=req.scope,
         mode=req.mode,
         lang=req.lang,
+    )
+
+
+@app.post("/api/ask/stream")
+def ask_stream(req: AskRequest) -> StreamingResponse:
+    """Server-Sent Events: streams the answer token by token as `data: {json}`
+    frames (events: {delta}, {tool}, {steps,done}, {unavailable}, {error})."""
+    engine = get_engine()  # raises before streaming starts if the graph is missing
+
+    def gen():
+        try:
+            for ev in ask_module.answer_stream(
+                req.question,
+                engine,
+                history=req.history,
+                scope=req.scope,
+                mode=req.mode,
+                lang=req.lang,
+            ):
+                yield f"data: {json.dumps(ev)}\n\n"
+        except Exception as e:  # surface unexpected errors as a final event
+            yield f"data: {json.dumps({'error': f'{type(e).__name__}: {e}'})}\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

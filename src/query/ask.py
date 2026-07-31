@@ -280,6 +280,30 @@ def _scope_note(scope: dict | None) -> str:
     return ("\n\n[SCOPE — narrowed by the user]\n" + "\n".join(parts)) if parts else ""
 
 
+def _init_messages(
+    question: str,
+    engine: GraphQuery,
+    history: list | None,
+    scope: dict | None,
+    mode: str,
+    lang: str,
+) -> list[dict]:
+    """Build the initial message list (system + capped history + user turn)."""
+    repos = ", ".join(engine.repos()) or "(none)"
+    messages: list[dict] = [
+        {
+            "role": "system",
+            "content": f"{_system(mode)}{_lang_note(lang)}\n\nIndexed repositories: {repos}.",
+        },
+    ]
+    # carry prior turns (text only), capped so context/token use stays bounded
+    for m in (history or [])[-12:]:
+        if m.get("role") in ("user", "assistant") and m.get("content"):
+            messages.append({"role": m["role"], "content": str(m["content"])})
+    messages.append({"role": "user", "content": question + _scope_note(scope)})
+    return messages
+
+
 def answer(
     question: str,
     engine: GraphQuery,
@@ -302,18 +326,7 @@ def answer(
     )  # imported lazily so the API/server run without the SDK/key
 
     client = OpenAI()
-    repos = ", ".join(engine.repos()) or "(none)"
-    messages = [
-        {
-            "role": "system",
-            "content": f"{_system(mode)}{_lang_note(lang)}\n\nIndexed repositories: {repos}.",
-        },
-    ]
-    # carry prior turns (text only), capped so context/token use stays bounded
-    for m in (history or [])[-12:]:
-        if m.get("role") in ("user", "assistant") and m.get("content"):
-            messages.append({"role": m["role"], "content": str(m["content"])})
-    messages.append({"role": "user", "content": question + _scope_note(scope)})
+    messages = _init_messages(question, engine, history, scope, mode, lang)
     steps: list[dict] = []
     max_steps = config.int_env("ATHENA_MAX_STEPS", 8)
 
@@ -371,3 +384,111 @@ def answer(
         "answer": "(stopped: too many reasoning steps)",
         "steps": steps,
     }
+
+
+def answer_stream(
+    question: str,
+    engine: GraphQuery,
+    history: list | None = None,
+    scope: dict | None = None,
+    mode: str = "business",
+    lang: str = "auto",
+):
+    """Streaming variant of answer(). Yields event dicts as the answer is
+    produced; the agentic tool loop runs internally and only the final answer
+    text is streamed token by token. Events:
+      {'unavailable': reason} | {'delta': text} | {'tool': name} |
+      {'steps': [...], 'done': True} | {'error': msg}
+    """
+    if not is_available():
+        yield {"unavailable": "OPENAI_API_KEY not set — natural-language Q&A is disabled."}
+        return
+
+    from openai import OpenAI  # lazy import (SDK/key optional for the rest of the app)
+
+    client = OpenAI()
+    messages = _init_messages(question, engine, history, scope, mode, lang)
+    steps: list[dict] = []
+    max_steps = config.int_env("ATHENA_MAX_STEPS", 8)
+
+    for _ in range(max_steps):
+        try:
+            stream = client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                tools=_TOOLS,
+                tool_choice="auto",
+                stream=True,
+            )
+        except Exception as e:  # rate limits / API errors → clean message, no crash
+            name = type(e).__name__
+            if "RateLimit" in name:
+                hint = (
+                    "OpenAI rate limit hit (tokens/min). Wait a few seconds and retry, "
+                    "or set a lighter model like gpt-4o-mini in .env (ATHENA_ASK_MODEL)."
+                )
+            else:
+                hint = f"OpenAI API error: {name}: {e}"
+            yield {"delta": hint}
+            yield {"steps": steps, "done": True}
+            return
+
+        content_parts: list[str] = []
+        tool_calls: dict[int, dict] = {}  # index → {id, name, args}
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if getattr(delta, "content", None):
+                content_parts.append(delta.content)
+                yield {"delta": delta.content}
+            for tc in getattr(delta, "tool_calls", None) or []:
+                slot = tool_calls.setdefault(tc.index, {"id": None, "name": "", "args": ""})
+                if tc.id:
+                    slot["id"] = tc.id
+                if tc.function and tc.function.name:
+                    slot["name"] += tc.function.name
+                if tc.function and tc.function.arguments:
+                    slot["args"] += tc.function.arguments
+
+        if not tool_calls:  # no tools this round → the final answer is complete
+            yield {"steps": steps, "done": True}
+            return
+
+        # Replay the assistant turn (with its tool_calls) so the next round has context.
+        ordered = [tool_calls[i] for i in sorted(tool_calls)]
+        messages.append(
+            {
+                "role": "assistant",
+                "content": "".join(content_parts) or None,
+                "tool_calls": [
+                    {
+                        "id": s["id"],
+                        "type": "function",
+                        "function": {"name": s["name"], "arguments": s["args"]},
+                    }
+                    for s in ordered
+                ],
+            }
+        )
+        for s in ordered:
+            method = getattr(engine, s["name"], None)
+            try:
+                args = json.loads(s["args"] or "{}")
+                output = (
+                    method(**args) if method else {"error": f"unknown tool {s['name']}"}
+                )
+            except Exception as e:
+                args, output = {}, {"error": f"{type(e).__name__}: {e}"}
+            steps.append({"tool": s["name"], "input": args if isinstance(args, dict) else {}})
+            yield {"tool": s["name"]}
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": s["id"],
+                    "content": json.dumps(output, default=str),
+                }
+            )
+
+    yield {"delta": "(stopped: too many reasoning steps)"}
+    yield {"steps": steps, "done": True}

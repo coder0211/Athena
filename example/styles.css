@@ -870,8 +870,13 @@ a.btn {
   padding: 2px 9px;
   white-space: nowrap;
 }
-.copy-btn {
-  margin-left: auto; /* push copy to the right edge of the message */
+.msg-actions {
+  margin-left: auto; /* push the action group to the right edge of the message */
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.act-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -889,14 +894,20 @@ a.btn {
     color 0.15s,
     background 0.15s;
 }
-.copy-btn svg {
+.act-btn svg {
   display: block;
   flex: none;
 }
-.copy-btn:hover {
+.act-btn:hover {
   opacity: 1;
   color: var(--text);
   background: var(--panel-2);
+}
+.act-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: none;
+  color: var(--muted);
 }
 .copy-btn.done {
   opacity: 1;

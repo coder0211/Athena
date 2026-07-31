@@ -104,25 +104,32 @@ function addUser(text, scope) {
   $("messages").append(row);
   scrollDown();
 }
+// Footer under an answer: tools used (left) + actions regenerate/copy (right).
+function buildFooter(text, steps) {
+  const foot = el("div", "msg-foot");
+  if (steps?.length) {
+    const tools = [...new Set(steps.map((s) => s.tool))];
+    const box = el("div", "tools");
+    box.append(el("span", "tools-ic", ICON_TOOL));
+    tools.forEach((name) => box.append(el("span", "tool-chip", escapeHtml(name))));
+    foot.append(box);
+  }
+  const actions = el("div", "msg-actions");
+  actions.append(regenButton());
+  actions.append(copyButton(text)); // copy the raw answer, not the rendered HTML
+  foot.append(actions);
+  return foot;
+}
 function addAssistant(text, steps, isError) {
   const row = el("div", "chat-msg assistant");
   const bubble = el("div", "bubble" + (isError ? " error" : ""), formatAnswer(text));
   row.append(bubble);
   if (!isError) {
-    // One footer bar: tools used on the left, copy on the right.
-    const foot = el("div", "msg-foot");
-    if (steps?.length) {
-      const tools = [...new Set(steps.map((s) => s.tool))];
-      const box = el("div", "tools");
-      box.append(el("span", "tools-ic", ICON_TOOL));
-      tools.forEach((name) => box.append(el("span", "tool-chip", escapeHtml(name))));
-      foot.append(box);
-    }
-    foot.append(copyButton(text)); // copy the raw answer, not the rendered HTML
-    row.append(foot);
+    row.append(buildFooter(text, steps));
   }
   $("messages").append(row);
   scrollDown();
+  if (!isError) pruneRegen(); // show regenerate only on this (now latest) answer
 }
 
 // Copy to clipboard, with a fallback for non-secure contexts.
@@ -154,9 +161,11 @@ const ICON_CHECK =
   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const ICON_TOOL =
   '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+const ICON_REGEN =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
 
 function copyButton(text) {
-  const btn = el("button", "copy-btn");
+  const btn = el("button", "act-btn copy-btn");
   btn.type = "button";
   const setState = (copied) => {
     btn.innerHTML =
@@ -173,6 +182,21 @@ function copyButton(text) {
   };
   return btn;
 }
+function regenButton() {
+  const btn = el("button", "act-btn regen-btn", ICON_REGEN + `<span>${t().regenLabel}</span>`);
+  btn.type = "button";
+  btn.title = t().regenLabel;
+  btn.onclick = () => regenerate();
+  return btn;
+}
+// Keep the regenerate button only on the most recent answer.
+function pruneRegen() {
+  const rows = [...$("messages").querySelectorAll(".chat-msg.assistant:not(.typing)")];
+  rows.forEach((row, i) => {
+    const btn = row.querySelector(".regen-btn");
+    if (btn) btn.style.display = i === rows.length - 1 ? "" : "none";
+  });
+}
 function addTyping() {
   const row = el("div", "chat-msg assistant typing");
   row.append(el("div", "bubble", '<span class="dot"></span><span class="dot"></span><span class="dot"></span>'));
@@ -184,43 +208,115 @@ function addTyping() {
 function setBusy(on) {
   busy = on;
   $("send").disabled = on;
+  document.querySelectorAll(".regen-btn").forEach((b) => (b.disabled = on));
 }
+
+let lastRequest = null; // {question, priorHistory, scope} — replayed by regenerate
 
 async function send(text) {
   const q = text.trim();
   if (!q || busy) return;
   hideEmpty();
   lockMode(); // this turn fixes the mode for the rest of the conversation
-  const scopeSnap = { repos: scopeRepos.slice(), symbols: scopeSymbols.slice() };
-  addUser(q, scopeSnap);
+  const scope = { repos: scopeRepos.slice(), symbols: scopeSymbols.slice() };
+  addUser(q, scope);
   const priorHistory = history.slice(); // turns before this question
   history.push({ role: "user", content: q });
   $("input").value = "";
   autoGrow();
+  lastRequest = { question: q, priorHistory, scope };
+  runAsk(lastRequest);
+}
+
+// Ask the server and stream the answer in. Shared by send() and regenerate().
+async function runAsk({ question, priorHistory, scope }) {
   setBusy(true);
   const typing = addTyping();
-  try {
-    const r = await apiPost("/api/ask", {
-      question: q,
-      history: priorHistory,
-      scope: { repos: scopeRepos.slice(), symbols: scopeSymbols.slice() },
-      mode,
-      lang,
-    });
+  let row = null;
+  let bubble = null;
+  let acc = "";
+  let steps = [];
+  let unavailable = null;
+  let streamError = null;
+
+  // Lazily create the answer row on the first token (typing shows until then).
+  const ensureRow = () => {
+    if (row) return;
     typing.remove();
-    if (!r.available) {
-      addAssistant(r.reason || t().unavailable, null, true);
+    row = el("div", "chat-msg assistant");
+    bubble = el("div", "bubble");
+    row.append(bubble);
+    $("messages").append(row);
+  };
+  const handle = (ev) => {
+    if (ev.unavailable) unavailable = ev.unavailable;
+    else if (ev.error) streamError = ev.error;
+    else if (ev.delta) {
+      ensureRow();
+      acc += ev.delta;
+      bubble.innerHTML = formatAnswer(acc); // re-render markdown as it grows
+      scrollDown();
+    } else if (ev.tool) steps.push({ tool: ev.tool });
+    else if (ev.done && ev.steps) steps = ev.steps;
+  };
+
+  try {
+    const res = await fetch("/api/ask/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, history: priorHistory, scope, mode, lang }),
+    });
+    if (!res.ok || !res.body) throw new Error(res.statusText || "stream failed");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 2);
+        if (!frame.startsWith("data:")) continue;
+        try {
+          handle(JSON.parse(frame.slice(5).trim()));
+        } catch {
+          /* ignore malformed frame */
+        }
+      }
+    }
+
+    typing.remove();
+    if (unavailable) {
+      row?.remove();
+      addAssistant(unavailable, null, true);
+    } else if (!row) {
+      addAssistant(t().errorPrefix + (streamError || "empty response"), null, true);
     } else {
-      addAssistant(r.answer, r.steps);
-      history.push({ role: "assistant", content: r.answer });
+      bubble.innerHTML = formatAnswer(acc); // final render
+      row.append(buildFooter(acc, steps));
+      pruneRegen();
+      history.push({ role: "assistant", content: acc });
     }
   } catch (e) {
     typing.remove();
+    row?.remove();
     addAssistant(t().errorPrefix + e.message, null, true);
   } finally {
     setBusy(false);
     $("input").focus();
   }
+}
+
+// Re-run the last question, replacing the last answer with a fresh one.
+function regenerate() {
+  if (busy || !lastRequest) return;
+  const rows = [...$("messages").querySelectorAll(".chat-msg.assistant:not(.typing)")];
+  rows[rows.length - 1]?.remove(); // drop the previous answer's row
+  if (history.at(-1)?.role === "assistant") history.pop(); // …and its history turn
+  runAsk(lastRequest);
 }
 
 // --- scope chips ---
@@ -431,6 +527,7 @@ const I18N = {
     mentionHint: "Type a symbol name…",
     copyLabel: "Copy",
     copiedLabel: "Copied",
+    regenLabel: "Regenerate",
     unavailable: "Q&A is unavailable.",
     errorPrefix: "Error: ",
     bannerNotBuilt: "⚠️ Graph not built yet — build it in the Manage app first.",
@@ -470,6 +567,7 @@ const I18N = {
     mentionHint: "Nhập tên một symbol…",
     copyLabel: "Sao chép",
     copiedLabel: "Đã chép",
+    regenLabel: "Tạo lại",
     unavailable: "Q&A hiện không khả dụng.",
     errorPrefix: "Lỗi: ",
     bannerNotBuilt: "⚠️ Chưa dựng graph — hãy dựng nó trong app Manage trước.",
