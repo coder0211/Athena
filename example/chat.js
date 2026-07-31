@@ -7,8 +7,7 @@ const el = (tag, cls, html) => {
   if (html != null) e.innerHTML = html;
   return e;
 };
-const escapeHtml = (s) =>
-  String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 
 async function apiPost(path, body) {
   const r = await fetch(path, {
@@ -31,7 +30,7 @@ let mode = localStorage.getItem("athena_mode") || "business"; // 'business' | 't
 let lang = localStorage.getItem("athena_lang") || "auto"; // 'auto' | 'en' | 'vi'
 let REPOS = []; // repo names, for @ mentions
 let REPO_META = {}; // {name: {description, role, tags}} for @ mention hints
-let scopeRepos = []; // ["be-flight", ...]
+let scopeRepos = []; // ["a", ...]
 let scopeSymbols = []; // [{name, id, repo}]
 let mention = null; // active mention being typed: {type, start, query}
 let mentionItems = [];
@@ -102,6 +101,7 @@ async function send(text) {
   const q = text.trim();
   if (!q || busy) return;
   hideEmpty();
+  lockMode(); // this turn fixes the mode for the rest of the conversation
   const scopeSnap = { repos: scopeRepos.slice(), symbols: scopeSymbols.slice() };
   addUser(q, scopeSnap);
   const priorHistory = history.slice(); // turns before this question
@@ -139,16 +139,20 @@ function renderScope() {
   const bar = $("scope-bar");
   bar.innerHTML = "";
   scopeRepos.forEach((r, i) =>
-    bar.append(scopeChip("@" + r, "repo", () => {
-      scopeRepos.splice(i, 1);
-      renderScope();
-    })),
+    bar.append(
+      scopeChip("@" + r, "repo", () => {
+        scopeRepos.splice(i, 1);
+        renderScope();
+      }),
+    ),
   );
   scopeSymbols.forEach((s, i) =>
-    bar.append(scopeChip("#" + s.name, "symbol", () => {
-      scopeSymbols.splice(i, 1);
-      renderScope();
-    })),
+    bar.append(
+      scopeChip("#" + s.name, "symbol", () => {
+        scopeSymbols.splice(i, 1);
+        renderScope();
+      }),
+    ),
   );
 }
 function scopeChip(label, kind, onRemove) {
@@ -295,12 +299,31 @@ $("new-chat").onclick = () => {
 };
 
 // --- Business ⇄ Technical mode toggle ---
+// Reflect the mode on <body> so CSS can theme the composer + message bubbles.
+let modeLocked = false;
+function applyModeTheme() {
+  document.body.dataset.mode = mode;
+}
+// The mode colours every past bubble, and each answer was produced in a given
+// mode — so once the conversation starts, lock it. New chat unlocks it.
+function lockMode() {
+  if (modeLocked) return;
+  modeLocked = true;
+  const tog = $("mode-toggle");
+  tog.classList.add("locked");
+  tog.title = "Locked for this conversation — start a new chat to switch modes.";
+  document.querySelectorAll(".mode-btn").forEach((b) => (b.disabled = true));
+}
+applyModeTheme();
 document.querySelectorAll(".mode-btn").forEach((b) => {
   b.classList.toggle("active", b.dataset.mode === mode);
   b.onclick = () => {
+    if (modeLocked) return;
     mode = b.dataset.mode;
     localStorage.setItem("athena_mode", mode);
     document.querySelectorAll(".mode-btn").forEach((x) => x.classList.toggle("active", x === b));
+    applyModeTheme();
+    renderEmpty(); // refresh the welcome copy + suggestions for the new mode
   };
 });
 
@@ -312,12 +335,46 @@ $("lang-select").onchange = () => {
 };
 
 // --- startup: availability check + suggestions ---
-const SUGGESTIONS = [
-  "How does a customer book and pay for a ticket?",
-  "Walk me through the checkout process step by step.",
-  "What happens when a payment fails?",
-  "What are the different apps and what does each one do?",
-];
+// Welcome copy + starter prompts are mode-specific, so they stay in sync when
+// the user flips Business ⇄ Technical.
+const COPY = {
+  business: {
+    title: "Understand how the product works",
+    desc: "Ask in plain language — it reads the real code and explains the business flow, step by step. No technical background needed.",
+    suggestions: [
+      "How does a customer book and pay for a ticket?",
+      "Walk me through the checkout process step by step.",
+      "What happens when a payment fails?",
+      "What are the different apps and what does each one do?",
+    ],
+  },
+  technical: {
+    title: "Understand how the code works",
+    desc: "Ask in plain language — it reads the real code and explains the implementation: call paths, data flow, and where each piece lives.",
+    suggestions: [
+      "Trace the request flow when a ticket is booked.",
+      "Which functions handle payment processing?",
+      "How is state managed through the checkout flow?",
+      "What are the main services and how do they depend on each other?",
+    ],
+  },
+};
+
+function renderEmpty() {
+  const e = $("empty");
+  if (!e) return; // gone once the conversation starts
+  const c = COPY[mode] || COPY.business;
+  e.querySelector("h2").textContent = c.title;
+  e.querySelector("p").textContent = c.desc;
+  const box = $("suggestions");
+  box.innerHTML = "";
+  c.suggestions.forEach((q) => {
+    const chip = el("button", "suggestion", escapeHtml(q));
+    chip.type = "button";
+    chip.onclick = () => send(q);
+    box.append(chip);
+  });
+}
 async function init() {
   try {
     const s = await apiGet("/api/status");
@@ -338,13 +395,7 @@ async function init() {
     /* workspace optional */
   }
   renderScope();
-  const box = $("suggestions");
-  SUGGESTIONS.forEach((q) => {
-    const chip = el("button", "suggestion", escapeHtml(q));
-    chip.type = "button";
-    chip.onclick = () => send(q);
-    box.append(chip);
-  });
+  renderEmpty();
   $("input").focus();
 }
 function showBanner(msg) {

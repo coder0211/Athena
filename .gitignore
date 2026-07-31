@@ -225,3 +225,6 @@ sources.yaml
 # Code-graph tool artifacts (also created inside cloned repos)
 .codegraph/
 graphify-out/
+
+
+workspace.yaml

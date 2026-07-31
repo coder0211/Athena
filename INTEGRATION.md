@@ -25,7 +25,7 @@ optionally, **`ask.answer()`** (natural language). Both take a path to
 ```python
 from query.engine import GraphQuery
 q = GraphQuery(".knowledge/graph.json")
-q.search_symbols("FlightService", type="Class")
+q.search_symbols("SomeService", type="Class")
 q.impact("cg:<repo>:class:<hash>", depth=2)       # change blast radius
 ```
 

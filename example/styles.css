@@ -785,7 +785,7 @@ a.btn {
   word-wrap: break-word;
 }
 .chat-msg.user .bubble {
-  background: var(--accent);
+  background: var(--mode-send);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -875,16 +875,36 @@ a.btn {
 .suggestion:hover {
   border-color: var(--accent);
 }
+/* Mode themes — the composer switches accent so Business vs Technical is
+   distinguishable at a glance. Defaults to the business (blue) palette. */
+.chat-page {
+  --mode-accent: #4f9cf9; /* vivid — used for borders/focus ring */
+  --mode-accent-2: #2f7de0;
+  --mode-tint: rgba(79, 156, 249, 0.09);
+  --mode-send: #1f6fd0; /* darker — white text on Send hits WCAG AA (~4.95:1) */
+  --mode-send-hover: #195cb0;
+}
+.chat-page[data-mode="technical"] {
+  --mode-accent: #fb923c; /* vivid orange — borders/focus (no text over it) */
+  --mode-accent-2: #ea7c1f;
+  --mode-tint: rgba(251, 146, 60, 0.12);
+  --mode-send: #c2410c; /* burnt orange — white text hits AA (~5.2:1) */
+  --mode-send-hover: #9a3412;
+}
 .composer {
   display: flex;
   gap: 10px;
   align-items: flex-end;
   padding: 14px 20px;
-  border-top: 1px solid var(--border);
+  border-top: 2px solid var(--mode-accent);
+  background: var(--mode-tint);
   width: 100%;
   max-width: 860px;
   margin: 0 auto;
   box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 }
 .composer textarea {
   flex: 1;
@@ -901,10 +921,19 @@ a.btn {
 }
 .composer textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--mode-accent);
+  box-shadow: 0 0 0 3px var(--mode-tint);
 }
 .composer .btn {
   height: 42px;
+}
+.composer .btn.primary {
+  background: var(--mode-send);
+  border-color: var(--mode-send);
+}
+.composer .btn.primary:hover {
+  background: var(--mode-send-hover);
+  border-color: var(--mode-send-hover);
 }
 
 /* Chat: scope chips + @/# mentions */
@@ -946,8 +975,8 @@ a.btn {
   font-size: 12px;
 }
 .scope-chip.repo {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--mode-accent);
+  color: var(--mode-accent);
 }
 .scope-chip button {
   background: none;
@@ -1037,8 +1066,16 @@ a.btn {
   cursor: pointer;
 }
 .mode-btn.active {
-  background: var(--accent);
+  background: var(--mode-send, var(--accent));
   color: #fff;
+}
+/* Once a conversation has started, the mode is fixed for it. */
+.mode-toggle.locked,
+.mode-toggle.locked .mode-btn {
+  cursor: not-allowed;
+}
+.mode-toggle.locked .mode-btn:not(.active) {
+  opacity: 0.4;
 }
 
 /* Response-language dropdown (chat header) */

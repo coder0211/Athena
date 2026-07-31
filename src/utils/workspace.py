@@ -1,7 +1,7 @@
 """Workspace layer — human-curated metadata about repos and how they relate.
 
 Separate from sources.yaml (which only says *what to clone*). `workspace.yaml`
-holds per-repo descriptions + typed relations between repos, e.g. "be-flight
+holds per-repo descriptions + typed relations between repos, e.g. "booking
 calls_api_of payments-service". This overlays onto the knowledge graph so
 queries and Q&A can reason across repositories.
 """

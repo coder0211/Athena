@@ -259,7 +259,7 @@ async function pollJob(jobId, kind) {
   const tick = async () => {
     const j = await api.get("/api/jobs/" + jobId);
     const spin = j.status === "running" ? '<span class="spinner"></span>' : "";
-    const secs = ((j.finished || Date.now() / 1000) - j.started) || 0;
+    const secs = (j.finished || Date.now() / 1000) - j.started || 0;
     const dur = secs < 60 ? `${secs.toFixed(0)}s` : `${(secs / 60).toFixed(1)}m`;
     card.innerHTML =
       `<div class="job-line">${spin}<b>${kind}</b>` +
@@ -286,8 +286,7 @@ function escapeHtml(s) {
 
 // --- workspace (repo descriptions + inter-repo relations) ---
 let WS = { repos: {}, relations: [], relation_types: [], repo_roles: [], repos_available: [] };
-const options = (values, selected) =>
-  values.map((v) => new Option(v || "—", v, v === selected, v === selected));
+const options = (values, selected) => values.map((v) => new Option(v || "—", v, v === selected, v === selected));
 
 function wsRepoCard(name, meta) {
   const card = el("div", "ws-card");
