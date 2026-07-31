@@ -197,12 +197,22 @@ function pruneRegen() {
     if (btn) btn.style.display = i === rows.length - 1 ? "" : "none";
   });
 }
+const statusLabel = (tool) => t().status[tool] || t().status._default;
 function addTyping() {
   const row = el("div", "chat-msg assistant typing");
-  row.append(el("div", "bubble", '<span class="dot"></span><span class="dot"></span><span class="dot"></span>'));
+  const bubble = el("div", "bubble typing-bubble");
+  bubble.append(el("span", "typing-status", t().status.thinking));
+  bubble.append(
+    el("span", "typing-dots", '<span class="dot"></span><span class="dot"></span><span class="dot"></span>'),
+  );
+  row.append(bubble);
   $("messages").append(row);
   scrollDown();
   return row;
+}
+function setTypingStatus(row, text) {
+  const s = row?.querySelector(".typing-status");
+  if (s) s.textContent = text;
 }
 
 function setBusy(on) {
@@ -256,8 +266,10 @@ async function runAsk({ question, priorHistory, scope }) {
       acc += ev.delta;
       bubble.innerHTML = formatAnswer(acc); // re-render markdown as it grows
       scrollDown();
-    } else if (ev.tool) steps.push({ tool: ev.tool });
-    else if (ev.done && ev.steps) steps = ev.steps;
+    } else if (ev.tool) {
+      steps.push({ tool: ev.tool });
+      if (!row) setTypingStatus(typing, statusLabel(ev.tool)); // live status while investigating
+    } else if (ev.done && ev.steps) steps = ev.steps;
   };
 
   try {
@@ -528,6 +540,24 @@ const I18N = {
     copyLabel: "Copy",
     copiedLabel: "Copied",
     regenLabel: "Regenerate",
+    status: {
+      thinking: "Thinking…",
+      overview: "Scanning the graph…",
+      search_symbols: "Searching the code…",
+      get_symbol: "Inspecting a symbol…",
+      callers: "Following call paths…",
+      callees: "Following call paths…",
+      impact: "Tracing impact…",
+      find_path: "Connecting the dots…",
+      list_communities: "Finding the feature area…",
+      community_members: "Exploring the feature area…",
+      repos_info: "Mapping the apps…",
+      repo_relations: "Mapping the apps…",
+      read_source: "Reading the source…",
+      read_file: "Reading the source…",
+      writing: "Writing the answer…",
+      _default: "Working…",
+    },
     unavailable: "Q&A is unavailable.",
     errorPrefix: "Error: ",
     bannerNotBuilt: "⚠️ Graph not built yet — build it in the Manage app first.",
@@ -568,6 +598,24 @@ const I18N = {
     copyLabel: "Sao chép",
     copiedLabel: "Đã chép",
     regenLabel: "Tạo lại",
+    status: {
+      thinking: "Đang suy nghĩ…",
+      overview: "Đang quét đồ thị…",
+      search_symbols: "Đang tìm trong mã nguồn…",
+      get_symbol: "Đang xem một symbol…",
+      callers: "Đang lần theo lời gọi hàm…",
+      callees: "Đang lần theo lời gọi hàm…",
+      impact: "Đang truy vết ảnh hưởng…",
+      find_path: "Đang nối các liên hệ…",
+      list_communities: "Đang tìm khu vực tính năng…",
+      community_members: "Đang khám phá khu vực tính năng…",
+      repos_info: "Đang lập bản đồ ứng dụng…",
+      repo_relations: "Đang lập bản đồ ứng dụng…",
+      read_source: "Đang đọc mã nguồn…",
+      read_file: "Đang đọc mã nguồn…",
+      writing: "Đang viết câu trả lời…",
+      _default: "Đang xử lý…",
+    },
     unavailable: "Q&A hiện không khả dụng.",
     errorPrefix: "Lỗi: ",
     bannerNotBuilt: "⚠️ Chưa dựng graph — hãy dựng nó trong app Manage trước.",

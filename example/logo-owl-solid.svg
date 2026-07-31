@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Athena">
+  <title>Athena</title>
+  <defs>
+    <linearGradient id="ath-solid-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f9cf9"/>
+      <stop offset="1" stop-color="#7c5cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#ath-solid-bg)"/>
+  <!-- ear tufts -->
+  <path d="M19 15 l7 7 -9 2 z" fill="#ffffff"/>
+  <path d="M45 15 l-7 7 9 2 z" fill="#ffffff"/>
+  <!-- owl body -->
+  <path d="M32 13 C20 13 15 22 15 32 C15 44 22 52 32 52 C42 52 49 44 49 32 C49 22 44 13 32 13 Z" fill="#ffffff"/>
+  <!-- eyes cut from the body (show the gradient) -->
+  <circle cx="25" cy="30" r="6" fill="url(#ath-solid-bg)"/>
+  <circle cx="39" cy="30" r="6" fill="url(#ath-solid-bg)"/>
+  <circle cx="25" cy="30" r="2.5" fill="#ffffff"/>
+  <circle cx="39" cy="30" r="2.5" fill="#ffffff"/>
+  <!-- beak -->
+  <path d="M32 34 l3.4 4.4 -3.4 2.4 -3.4 -2.4 z" fill="#ffcf5c"/>
+</svg>
