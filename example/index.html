@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Athena — Code Knowledge Graph</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🦉 Athena</h1>
+      <p class="sub">Code knowledge graph over your repositories</p>
+      <div id="status-bar" class="status-bar">loading…</div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="repos">Repositories</button>
+      <button class="tab" data-tab="workspace">Workspace</button>
+      <button class="tab" data-tab="build">Fetch &amp; Build</button>
+      <button class="tab" data-tab="ask">Ask</button>
+    </nav>
+
+    <main>
+      <!-- Repositories -->
+      <section id="repos" class="panel active">
+        <h2>Source repositories</h2>
+        <p class="hint">These are cloned into <code>.sources/</code> and indexed. One row per repo.</p>
+        <div class="repo-head">
+          <span class="col-url">Git URL</span>
+          <span class="col-branch">Branch</span>
+          <span class="col-del"></span>
+        </div>
+        <div id="repo-rows"></div>
+        <div class="row-actions">
+          <button id="add-repo" class="btn">+ Add repository</button>
+          <button id="save-repos" class="btn primary">Save</button>
+          <span id="repos-msg" class="msg"></span>
+        </div>
+      </section>
+
+      <!-- Workspace -->
+      <section id="workspace" class="panel">
+        <h2>Workspace</h2>
+        <p class="hint">Describe each repository and how they relate (e.g. one is the backend of another). This powers cross-repo answers in the Ask tab.</p>
+
+        <div class="ws-section-title">Repositories <span class="ws-sub">description · role · tags</span></div>
+        <div id="ws-repos" class="ws-repos"></div>
+
+        <div class="ws-section-title">
+          Relations <span class="ws-sub">how repos connect</span>
+          <button id="ws-add-rel" class="btn small" type="button">+ Add</button>
+        </div>
+        <div class="ws-rel-head">
+          <span>From</span><span>Relationship</span><span>To</span><span>Notes</span><span></span>
+        </div>
+        <div id="ws-relations"></div>
+
+        <div class="row-actions ws-save-bar">
+          <button id="ws-save" class="btn primary" type="button">Save workspace</button>
+          <span id="ws-msg" class="msg"></span>
+        </div>
+      </section>
+
+      <!-- Fetch & Build -->
+      <section id="build" class="panel">
+        <h2>Pipeline</h2>
+        <p class="hint">Clone/update repos, then build the knowledge graph (structure + concept communities).</p>
+        <div class="steps">
+          <button id="run-fetch" class="step-card">
+            <span class="step-n">1</span>
+            <span class="step-body"><span class="step-t">Fetch repos</span><span class="step-d">git clone / update into .sources/</span></span>
+          </button>
+          <button id="run-build" class="step-card primary">
+            <span class="step-n">2</span>
+            <span class="step-body"><span class="step-t">Build graph</span><span class="step-d">extract → merge → cluster</span></span>
+          </button>
+        </div>
+        <div id="job-status" class="job-status"></div>
+        <div id="graph-stats"></div>
+      </section>
+
+      <!-- Ask -->
+      <section id="ask" class="panel">
+        <h2>Ask the graph</h2>
+        <p class="hint" id="ask-hint"></p>
+        <div class="ask-box">
+          <textarea
+            id="ask-input"
+            rows="3"
+            placeholder="e.g. What is affected if I change FlightService.update?"
+          ></textarea>
+          <button id="ask-send" class="btn primary">Ask</button>
+        </div>
+        <div id="ask-answer" class="answer"></div>
+
+        <h3>Quick symbol search</h3>
+        <div class="ask-box">
+          <input id="search-input" type="text" placeholder="Search symbols by name (e.g. FlightService)" />
+          <button id="search-send" class="btn">Search</button>
+        </div>
+        <div id="search-results" class="results"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

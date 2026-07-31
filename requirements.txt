@@ -1,2 +1,10 @@
 PyYAML
 tqdm
+networkx
+graphifyy
+mcp
+fastapi
+uvicorn
+openai
+# codegraph CLI is installed separately via npm: npm i -g @colbymchenry/codegraph
+# kuzu  # optional Kuzu store backend; needs cmake + a Python with prebuilt wheels

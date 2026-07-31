@@ -1,0 +1,21 @@
+services:
+  athena:
+    build: .
+    ports:
+      - "8000:8000"
+    # OPENAI_API_KEY / ATHENA_ASK_MODEL come from .env (gitignored, not baked into the image).
+    env_file:
+      - .env
+    volumes:
+      # App code — mounted so edits apply on `docker compose restart` (no rebuild).
+      - ./src:/app/src
+      - ./example:/app/example
+      # Repo config (editable from the UI) and pipeline outputs, persisted to the host.
+      - ./sources.yaml:/app/sources.yaml
+      - ./workspace.yaml:/app/workspace.yaml
+      - ./.sources:/app/.sources
+      - ./.knowledge:/app/.knowledge
+
+      # SSH keys so the container can clone private repos (git@…). Read-only.
+      - ${HOME}/.ssh:/root/.ssh:ro
+    restart: unless-stopped

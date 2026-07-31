@@ -220,3 +220,8 @@ __marimo__/
 
 sources.yaml
 .sources
+.knowledge
+
+# Code-graph tool artifacts (also created inside cloned repos)
+.codegraph/
+graphify-out/

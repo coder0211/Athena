@@ -1,0 +1,15 @@
+# Keep the build context small — these are mounted at runtime, not baked in.
+venv/
+.venv/
+.sources/
+.knowledge/
+**/.codegraph/
+**/graphify-out/
+**/__pycache__/
+*.pyc
+.git/
+.env
+sources.yaml
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/

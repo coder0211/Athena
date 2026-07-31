@@ -1,0 +1,21 @@
+# Curated metadata about your repos and how they relate.
+# Managed from the "Workspace" tab in the UI, or edited here directly.
+# repo keys are the repo names (last path segment of the git URL, minus .git).
+
+repos:
+  web-app:
+    description: Customer-facing web frontend.
+    role: frontend # mobile | frontend | backend | service | library | infra | other
+    tags: [react, checkout]
+  api-server:
+    description: REST API and business logic.
+    role: backend
+    tags: [go, api]
+
+relations:
+  # type: depends_on | backend_of | frontend_of | calls_api_of |
+  #       shares_code_with | forked_from | related_to
+  - source: web-app
+    target: api-server
+    type: calls_api_of
+    description: The web app calls the API server for all data.
