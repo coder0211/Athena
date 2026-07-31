@@ -37,12 +37,42 @@ let mention = null; // active mention being typed: {type, start, query}
 let mentionItems = [];
 let mentionActive = -1;
 
+// --- lightweight, dependency-free syntax highlight (works offline) ---
+// One pass over already-escaped code: comments → strings → numbers → keywords.
+// Ordering matters so we don't recolour inside comments/strings.
+const CODE_KEYWORDS =
+  "if|else|elif|for|while|return|function|fn|def|lambda|class|struct|enum|interface|" +
+  "type|const|let|var|final|new|delete|import|from|export|module|package|use|mod|pub|" +
+  "async|await|yield|try|catch|except|finally|throw|raise|switch|case|match|default|" +
+  "break|continue|do|in|of|is|as|with|where|impl|extends|implements|super|this|self|" +
+  "public|private|protected|static|abstract|void|null|nil|None|undefined|true|false|" +
+  "True|False|and|or|not|int|float|double|bool|boolean|string|str|char|byte|long";
+const CODE_TOKEN = new RegExp(
+  "(\\/\\/[^\\n]*|#[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/)" + // 1: line/block comments
+    "|(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|`(?:\\\\.|[^`\\\\])*`)" + // 2: strings (quotes aren't HTML-escaped)
+    "|\\b(\\d[\\d_]*(?:\\.\\d+)?)\\b" + // 3: numbers
+    "|\\b(" + CODE_KEYWORDS + ")\\b", // 4: keywords
+  "g",
+);
+function highlightCode(raw) {
+  return escapeHtml(raw).replace(CODE_TOKEN, (m, comment, str, num, kw) => {
+    if (comment) return `<span class="tok-comment">${comment}</span>`;
+    if (str) return `<span class="tok-string">${str}</span>`;
+    if (num) return `<span class="tok-number">${num}</span>`;
+    if (kw) return `<span class="tok-keyword">${kw}</span>`;
+    return m;
+  });
+}
+
 // --- lightweight markdown: fenced code blocks + inline code + bold ---
 function formatAnswer(text) {
   const parts = String(text).split(/```/);
   return parts
     .map((part, i) => {
-      if (i % 2 === 1) return `<pre><code>${escapeHtml(part.replace(/^\w*\n/, ""))}</code></pre>`;
+      if (i % 2 === 1) {
+        const body = part.replace(/^\w*\n/, ""); // drop the ```lang line
+        return `<pre><code>${highlightCode(body)}</code></pre>`;
+      }
       return escapeHtml(part)
         .replace(/`([^`]+)`/g, "<code>$1</code>")
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -78,12 +108,70 @@ function addAssistant(text, steps, isError) {
   const row = el("div", "chat-msg assistant");
   const bubble = el("div", "bubble" + (isError ? " error" : ""), formatAnswer(text));
   row.append(bubble);
-  if (steps?.length) {
-    const tools = [...new Set(steps.map((s) => s.tool))];
-    row.append(el("div", "tools", "🔧 " + tools.map((t) => `<code>${t}</code>`).join(" ")));
+  if (!isError) {
+    // One footer bar: tools used on the left, copy on the right.
+    const foot = el("div", "msg-foot");
+    if (steps?.length) {
+      const tools = [...new Set(steps.map((s) => s.tool))];
+      const box = el("div", "tools");
+      box.append(el("span", "tools-ic", ICON_TOOL));
+      tools.forEach((name) => box.append(el("span", "tool-chip", escapeHtml(name))));
+      foot.append(box);
+    }
+    foot.append(copyButton(text)); // copy the raw answer, not the rendered HTML
+    row.append(foot);
   }
   $("messages").append(row);
   scrollDown();
+}
+
+// Copy to clipboard, with a fallback for non-secure contexts.
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to the textarea fallback */
+  }
+  try {
+    const ta = el("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+const ICON_COPY =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_CHECK =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const ICON_TOOL =
+  '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+
+function copyButton(text) {
+  const btn = el("button", "copy-btn");
+  btn.type = "button";
+  const setState = (copied) => {
+    btn.innerHTML =
+      (copied ? ICON_CHECK : ICON_COPY) + `<span>${copied ? t().copiedLabel : t().copyLabel}</span>`;
+    btn.title = copied ? t().copiedLabel : t().copyLabel;
+    btn.classList.toggle("done", copied);
+  };
+  setState(false);
+  btn.onclick = async () => {
+    const ok = await copyText(text);
+    if (!ok) return;
+    setState(true);
+    setTimeout(() => setState(false), 1500);
+  };
+  return btn;
 }
 function addTyping() {
   const row = el("div", "chat-msg assistant typing");
@@ -341,6 +429,8 @@ const I18N = {
     tip: 'Tip: type <b>@</b> to focus on one app, <b>#</b> to focus on a specific feature/screen.',
     modeLocked: "Locked for this conversation — start a new chat to switch modes.",
     mentionHint: "Type a symbol name…",
+    copyLabel: "Copy",
+    copiedLabel: "Copied",
     unavailable: "Q&A is unavailable.",
     errorPrefix: "Error: ",
     bannerNotBuilt: "⚠️ Graph not built yet — build it in the Manage app first.",
@@ -378,6 +468,8 @@ const I18N = {
     tip: 'Mẹo: gõ <b>@</b> để tập trung vào một ứng dụng, <b>#</b> để tập trung vào một tính năng/màn hình cụ thể.',
     modeLocked: "Đã khoá cho cuộc trò chuyện này — mở trò chuyện mới để đổi chế độ.",
     mentionHint: "Nhập tên một symbol…",
+    copyLabel: "Sao chép",
+    copiedLabel: "Đã chép",
     unavailable: "Q&A hiện không khả dụng.",
     errorPrefix: "Lỗi: ",
     bannerNotBuilt: "⚠️ Chưa dựng graph — hãy dựng nó trong app Manage trước.",

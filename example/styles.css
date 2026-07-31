@@ -811,11 +811,97 @@ a.btn {
   background: none;
   padding: 0;
 }
-.chat-msg .tools {
+/* Syntax highlight tokens (dark theme defaults — GitHub-ish palette) */
+.tok-comment {
+  color: #8b949e;
+  font-style: italic;
+}
+.tok-string {
+  color: #a5d6ff;
+}
+.tok-number {
+  color: #79c0ff;
+}
+.tok-keyword {
+  color: #ff7b72;
+}
+@media (prefers-color-scheme: light) {
+  .tok-comment {
+    color: #6e7781;
+  }
+  .tok-string {
+    color: #0a3069;
+  }
+  .tok-number {
+    color: #0550ae;
+  }
+  .tok-keyword {
+    color: #cf222e;
+  }
+}
+/* Footer under an assistant answer: tools used (left) + copy (right) */
+.msg-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 7px;
+  padding-left: 2px;
+  max-width: 82%; /* line up with the bubble width */
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.tools-ic {
+  display: inline-flex;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.tool-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   color: var(--muted);
-  margin-top: 4px;
-  padding-left: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.copy-btn {
+  margin-left: auto; /* push copy to the right edge of the message */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.75;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+.copy-btn svg {
+  display: block;
+  flex: none;
+}
+.copy-btn:hover {
+  opacity: 1;
+  color: var(--text);
+  background: var(--panel-2);
+}
+.copy-btn.done {
+  opacity: 1;
+  color: var(--ok);
+  cursor: default;
 }
 .chat-msg.typing .bubble {
   display: inline-flex;

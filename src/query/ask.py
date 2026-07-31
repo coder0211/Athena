@@ -29,6 +29,38 @@ _INVESTIGATE = (
     "read_file, and follow callers/callees so the explanation is accurate. Never guess.\n"
     "Only say the codebase lacks something after actually searching several terms and "
     "reading the relevant files.\n\n"
+    "HOW TO REASON (internal chain-of-thought — think step by step, but never print "
+    "this scratchpad):\n"
+    "- Restate the question as the concrete thing to find, and name any assumption you "
+    "are making.\n"
+    "- Work iteratively (plan → act → observe → refine): form a hypothesis about where "
+    "the answer lives, use tools to test it, read what comes back, and revise the "
+    "hypothesis until the evidence is solid. Prefer one more tool call over a guess.\n"
+    "- Decompose non-trivial questions into sub-questions and resolve each from the code "
+    "before you compose the overall answer.\n"
+    "- VERIFY before answering: every statement you make must trace to code you actually "
+    "read; if a claim is not backed by what you saw, verify it or drop it.\n"
+    "- Then output ONLY the finished, reader-facing answer — do not reveal these steps, "
+    "your hypotheses, or your tool scratchpad.\n\n"
+)
+
+# Appended to both audiences: push for one thorough, self-contained answer so the
+# user rarely has to come back with a follow-up.
+_COMPLETENESS = (
+    "\n\nBE COMPLETE — aim to fully resolve the question in a single answer so the "
+    "reader rarely needs a follow-up:\n"
+    "- Do NOT reply with a clarifying question. If the request is ambiguous, choose the "
+    "most likely interpretation, state that assumption in one short line, and answer it "
+    "in full; if two readings are both plausible, cover both.\n"
+    "- Give the whole picture end to end — the full flow, the main branches, and what "
+    "happens on success, on failure, and in the important edge cases — not just the "
+    "happy path.\n"
+    "- Proactively answer the natural next questions: what triggers it, what it depends "
+    "on, what can go wrong, and where to look next.\n"
+    "- Prefer a thorough, self-contained answer over a terse one, but no filler: use "
+    "headings, numbered steps and bullets so a longer answer stays easy to scan.\n"
+    "- Ask the user for something back ONLY as a last resort, when you genuinely cannot "
+    "proceed without a specific detail that only they can provide."
 )
 
 _ANSWER_BUSINESS = (
@@ -46,6 +78,7 @@ _ANSWER_BUSINESS = (
     "success vs failure / edge cases.\n"
     "- Keep code to a minimum. Prefer describing the logic over pasting code.\n"
     "- End with a short 'Where this lives:' line naming the app (repo) and file(s)."
+    + _COMPLETENESS
 )
 
 _ANSWER_TECHNICAL = (
@@ -60,6 +93,7 @@ _ANSWER_TECHNICAL = (
     "- Cite repo and file path (with line numbers when known) for every key part.\n"
     "- Note important edge cases, error handling, side effects, and state changes.\n"
     "- Don't over-explain common concepts; assume software fluency."
+    + _COMPLETENESS
 )
 
 
