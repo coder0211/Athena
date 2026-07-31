@@ -182,8 +182,38 @@ def is_available() -> bool:
     return bool(os.environ.get("OPENAI_API_KEY"))
 
 
-def answer(question: str, engine: GraphQuery) -> dict:
-    """Answer a NL question. Returns {available, answer, steps} or {available: False}."""
+def _scope_note(scope: dict | None) -> str:
+    """Turn a mention scope ({repos:[], symbols:[...]}) into a system-style hint."""
+    if not scope:
+        return ""
+    repos = [r for r in (scope.get("repos") or []) if r]
+    syms = [s for s in (scope.get("symbols") or []) if s]
+    parts = []
+    if repos:
+        parts.append(
+            "Restrict analysis to these repositories ONLY: "
+            + ", ".join(repos)
+            + ". Always pass repo=<name> to search_symbols."
+        )
+    if syms:
+        names = [s.get("name") if isinstance(s, dict) else str(s) for s in syms]
+        parts.append(
+            "Focus on these symbols: "
+            + ", ".join(n for n in names if n)
+            + ". Search for and read_source them first."
+        )
+    return ("\n\n[SCOPE — narrowed by the user]\n" + "\n".join(parts)) if parts else ""
+
+
+def answer(
+    question: str,
+    engine: GraphQuery,
+    history: list | None = None,
+    scope: dict | None = None,
+) -> dict:
+    """Answer a NL question with optional prior conversation `history`
+    ([{role, content}]) and a mention `scope` ({repos, symbols}) that narrows
+    the search. Returns {available, answer, steps}."""
     if not is_available():
         return {
             "available": False,
@@ -198,8 +228,12 @@ def answer(question: str, engine: GraphQuery) -> dict:
     repos = ", ".join(engine.repos()) or "(none)"
     messages = [
         {"role": "system", "content": f"{SYSTEM}\n\nIndexed repositories: {repos}."},
-        {"role": "user", "content": question},
     ]
+    # carry prior turns (text only), capped so context/token use stays bounded
+    for m in (history or [])[-12:]:
+        if m.get("role") in ("user", "assistant") and m.get("content"):
+            messages.append({"role": m["role"], "content": str(m["content"])})
+    messages.append({"role": "user", "content": question + _scope_note(scope)})
     steps: list[dict] = []
     max_steps = config.int_env("ATHENA_MAX_STEPS", 8)
 

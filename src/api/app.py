@@ -110,6 +110,8 @@ class Sources(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
+    history: list = []  # prior [{role, content}] turns for multi-turn chat
+    scope: dict = {}  # {repos: [...], symbols: [...]} to narrow the search
 
 
 # --- sources (repo settings) ---------------------------------------------
@@ -248,10 +250,19 @@ def communities(q: str | None = None, limit: int = 30) -> list[dict]:
 # --- natural-language Q&A -------------------------------------------------
 @app.post("/api/ask")
 def ask(req: AskRequest) -> dict:
-    return ask_module.answer(req.question, get_engine())
+    return ask_module.answer(
+        req.question, get_engine(), history=req.history, scope=req.scope
+    )
 
 
-# --- static web UI (registered last so /api/* wins) ----------------------
+# --- pages + static web UI (registered last so /api/* wins) --------------
+@app.get("/chat")
+def chat_page():
+    from fastapi.responses import FileResponse
+
+    return FileResponse(_UI_DIR / "chat.html")
+
+
 if _UI_DIR.exists():
     app.mount("/", StaticFiles(directory=str(_UI_DIR), html=True), name="ui")
 

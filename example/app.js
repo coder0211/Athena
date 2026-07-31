@@ -54,12 +54,6 @@ async function refreshStatus() {
     } else {
       bar.textContent = "⚠️ Graph not built yet — add repos, then Fetch & Build.";
     }
-    const hint = $("ask-hint");
-    if (s.ask_available) hint.textContent = "Ask questions in natural language — the model explores the graph to answer.";
-    else
-      hint.innerHTML =
-        "Natural-language Q&A is off (no <code>OPENAI_API_KEY</code>). Use quick search below, or set the key and restart.";
-    $("ask-send").disabled = !s.ask_available;
   } catch (e) {
     $("status-bar").textContent = "API unreachable: " + e.message;
   }
@@ -285,55 +279,6 @@ $("run-build").onclick = async () => {
   const { job_id } = await api.post("/api/build");
   pollJob(job_id, "Build");
 };
-
-// --- ask ---
-$("ask-send").onclick = async () => {
-  const q = $("ask-input").value.trim();
-  if (!q) return;
-  const out = $("ask-answer");
-  out.innerHTML = '<div class="text"><span class="spinner"></span> thinking…</div>';
-  try {
-    const r = await api.post("/api/ask", { question: q });
-    if (!r.available) {
-      out.innerHTML = `<div class="text">${r.reason}</div>`;
-      return;
-    }
-    let html = `<div class="text">${escapeHtml(r.answer)}</div>`;
-    if (r.steps?.length)
-      html += `<div class="steps">tools: ${r.steps.map((s) => `<code>${s.tool}</code>`).join("")}</div>`;
-    out.innerHTML = html;
-  } catch (e) {
-    out.innerHTML = `<div class="text">Error: ${e.message}</div>`;
-  }
-};
-
-// --- search ---
-$("search-send").onclick = doSearch;
-$("search-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") doSearch();
-});
-async function doSearch() {
-  const q = $("search-input").value.trim();
-  if (!q) return;
-  const box = $("search-results");
-  box.innerHTML = '<span class="spinner"></span>';
-  try {
-    const rows = await api.get("/api/search?q=" + encodeURIComponent(q) + "&limit=25");
-    box.innerHTML = "";
-    if (!rows.length) {
-      box.textContent = "No matches.";
-      return;
-    }
-    rows.forEach((n) => {
-      const d = el("div", "result");
-      d.innerHTML = `<div class="name">${escapeHtml(n.name)} <span class="meta">· ${n.type}</span></div>
-        <div class="meta">${n.repo || ""}${n.path ? " · " + escapeHtml(n.path) : ""}${n.community_name ? " · 🏷 " + escapeHtml(n.community_name) : ""}</div>`;
-      box.append(d);
-    });
-  } catch (e) {
-    box.textContent = "Error: " + e.message;
-  }
-}
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);

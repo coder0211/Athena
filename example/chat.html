@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Athena Chat</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="chat-page">
+    <header class="chat-header">
+      <div class="chat-header-inner">
+        <div class="chat-title">🦉 Athena Chat</div>
+        <div class="chat-actions">
+          <button id="new-chat" class="btn small" type="button">New chat</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="banner" class="chat-banner" hidden></div>
+
+    <main id="messages" class="messages">
+      <div id="empty" class="chat-empty">
+        <h2>Ask about your code</h2>
+        <p>Multi-turn Q&amp;A over the knowledge graph — it reads real source to answer.</p>
+        <p class="chat-empty-tip">Tip: type <b>@</b> to scope to a repo, <b>#</b> to scope to a symbol.</p>
+        <div id="suggestions" class="suggestions"></div>
+      </div>
+    </main>
+
+    <form id="composer" class="composer">
+      <div class="composer-main">
+        <div id="scope-bar" class="scope-bar"></div>
+        <textarea id="input" rows="1" placeholder="Ask anything…  @repo or #symbol to narrow scope · Enter to send"></textarea>
+        <div id="mention-list" class="mention-list" hidden></div>
+      </div>
+      <button id="send" class="btn primary" type="submit">Send</button>
+    </form>
+
+    <script src="chat.js"></script>
+  </body>
+</html>

@@ -8,8 +8,13 @@
   </head>
   <body>
     <header>
-      <h1>🦉 Athena</h1>
-      <p class="sub">Code knowledge graph over your repositories</p>
+      <div class="header-top">
+        <div>
+          <h1>🦉 Athena</h1>
+          <p class="sub">Code knowledge graph over your repositories</p>
+        </div>
+        <a class="btn primary open-chat" href="/chat">Open Chat</a>
+      </div>
       <div id="status-bar" class="status-bar">loading…</div>
     </header>
 
@@ -17,7 +22,6 @@
       <button class="tab active" data-tab="repos">Repositories</button>
       <button class="tab" data-tab="workspace">Workspace</button>
       <button class="tab" data-tab="build">Fetch &amp; Build</button>
-      <button class="tab" data-tab="ask">Ask</button>
     </nav>
 
     <main>
@@ -41,7 +45,10 @@
       <!-- Workspace -->
       <section id="workspace" class="panel">
         <h2>Workspace</h2>
-        <p class="hint">Describe each repository and how they relate (e.g. one is the backend of another). This powers cross-repo answers in the Ask tab.</p>
+        <p class="hint">
+          Describe each repository and how they relate (e.g. one is the backend of another). This powers cross-repo
+          answers in the Ask tab.
+        </p>
 
         <div class="ws-section-title">Repositories <span class="ws-sub">description · role · tags</span></div>
         <div id="ws-repos" class="ws-repos"></div>
@@ -68,37 +75,20 @@
         <div class="steps">
           <button id="run-fetch" class="step-card">
             <span class="step-n">1</span>
-            <span class="step-body"><span class="step-t">Fetch repos</span><span class="step-d">git clone / update into .sources/</span></span>
+            <span class="step-body"
+              ><span class="step-t">Fetch repos</span
+              ><span class="step-d">git clone / update into .sources/</span></span
+            >
           </button>
           <button id="run-build" class="step-card primary">
             <span class="step-n">2</span>
-            <span class="step-body"><span class="step-t">Build graph</span><span class="step-d">extract → merge → cluster</span></span>
+            <span class="step-body"
+              ><span class="step-t">Build graph</span><span class="step-d">extract → merge → cluster</span></span
+            >
           </button>
         </div>
         <div id="job-status" class="job-status"></div>
         <div id="graph-stats"></div>
-      </section>
-
-      <!-- Ask -->
-      <section id="ask" class="panel">
-        <h2>Ask the graph</h2>
-        <p class="hint" id="ask-hint"></p>
-        <div class="ask-box">
-          <textarea
-            id="ask-input"
-            rows="3"
-            placeholder="e.g. What is affected if I change FlightService.update?"
-          ></textarea>
-          <button id="ask-send" class="btn primary">Ask</button>
-        </div>
-        <div id="ask-answer" class="answer"></div>
-
-        <h3>Quick symbol search</h3>
-        <div class="ask-box">
-          <input id="search-input" type="text" placeholder="Search symbols by name (e.g. FlightService)" />
-          <button id="search-send" class="btn">Search</button>
-        </div>
-        <div id="search-results" class="results"></div>
       </section>
     </main>
 
