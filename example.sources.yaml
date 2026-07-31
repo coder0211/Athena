@@ -1,0 +1,5 @@
+repositories:
+  - url: https://github.com/example/repo.git
+    branch: main
+  - url: https://github.com/example/repo2.git
+    branch: main
