@@ -112,6 +112,8 @@ class AskRequest(BaseModel):
     question: str
     history: list = []  # prior [{role, content}] turns for multi-turn chat
     scope: dict = {}  # {repos: [...], symbols: [...]} to narrow the search
+    mode: str = "business"  # 'business' (non-technical) | 'technical'
+    lang: str = "auto"  # 'auto' | 'en' | 'vi'
 
 
 # --- sources (repo settings) ---------------------------------------------
@@ -251,7 +253,12 @@ def communities(q: str | None = None, limit: int = 30) -> list[dict]:
 @app.post("/api/ask")
 def ask(req: AskRequest) -> dict:
     return ask_module.answer(
-        req.question, get_engine(), history=req.history, scope=req.scope
+        req.question,
+        get_engine(),
+        history=req.history,
+        scope=req.scope,
+        mode=req.mode,
+        lang=req.lang,
     )
 
 

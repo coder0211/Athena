@@ -10,8 +10,17 @@
     <header class="chat-header">
       <div class="chat-header-inner">
         <div class="chat-title">🦉 Athena Chat</div>
+        <div class="mode-toggle" id="mode-toggle" title="How answers are explained">
+          <button class="mode-btn active" data-mode="business" type="button">Business</button>
+          <button class="mode-btn" data-mode="technical" type="button">Technical</button>
+        </div>
         <div class="chat-actions">
           <button id="new-chat" class="btn small" type="button">New chat</button>
+          <select id="lang-select" class="lang-select" title="Response language">
+            <option value="auto">🌐 Auto</option>
+            <option value="en">English</option>
+            <option value="vi">Tiếng Việt</option>
+          </select>
         </div>
       </div>
     </header>
@@ -20,9 +29,9 @@
 
     <main id="messages" class="messages">
       <div id="empty" class="chat-empty">
-        <h2>Ask about your code</h2>
-        <p>Multi-turn Q&amp;A over the knowledge graph — it reads real source to answer.</p>
-        <p class="chat-empty-tip">Tip: type <b>@</b> to scope to a repo, <b>#</b> to scope to a symbol.</p>
+        <h2>Understand how the product works</h2>
+        <p>Ask in plain language — it reads the real code and explains the business flow, step by step. No technical background needed.</p>
+        <p class="chat-empty-tip">Tip: type <b>@</b> to focus on one app, <b>#</b> to focus on a specific feature/screen.</p>
         <div id="suggestions" class="suggestions"></div>
       </div>
     </main>

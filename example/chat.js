@@ -27,6 +27,8 @@ async function apiGet(path) {
 
 let history = []; // [{role:'user'|'assistant', content}]
 let busy = false;
+let mode = localStorage.getItem("athena_mode") || "business"; // 'business' | 'technical'
+let lang = localStorage.getItem("athena_lang") || "auto"; // 'auto' | 'en' | 'vi'
 let REPOS = []; // repo names, for @ mentions
 let REPO_META = {}; // {name: {description, role, tags}} for @ mention hints
 let scopeRepos = []; // ["be-flight", ...]
@@ -113,6 +115,8 @@ async function send(text) {
       question: q,
       history: priorHistory,
       scope: { repos: scopeRepos.slice(), symbols: scopeSymbols.slice() },
+      mode,
+      lang,
     });
     typing.remove();
     if (!r.available) {
@@ -290,12 +294,29 @@ $("new-chat").onclick = () => {
   location.reload();
 };
 
+// --- Business ⇄ Technical mode toggle ---
+document.querySelectorAll(".mode-btn").forEach((b) => {
+  b.classList.toggle("active", b.dataset.mode === mode);
+  b.onclick = () => {
+    mode = b.dataset.mode;
+    localStorage.setItem("athena_mode", mode);
+    document.querySelectorAll(".mode-btn").forEach((x) => x.classList.toggle("active", x === b));
+  };
+});
+
+// --- response language ---
+$("lang-select").value = lang;
+$("lang-select").onchange = () => {
+  lang = $("lang-select").value;
+  localStorage.setItem("athena_lang", lang);
+};
+
 // --- startup: availability check + suggestions ---
 const SUGGESTIONS = [
-  "How does the payment flow work?",
-  "Which repositories are there and how do they relate?",
-  "What is affected if I change the booking service?",
-  "Explain the checkout logic and cite the files.",
+  "How does a customer book and pay for a ticket?",
+  "Walk me through the checkout process step by step.",
+  "What happens when a payment fails?",
+  "What are the different apps and what does each one do?",
 ];
 async function init() {
   try {
