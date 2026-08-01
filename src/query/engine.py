@@ -51,6 +51,62 @@ _TYPE_RANK = {
 }
 
 
+def _initials(name: str) -> str:
+    """Acronym of a symbol name from word starts — camelCase and separator
+    boundaries. 'PaymentService' -> 'ps', 'get_user_by_id' -> 'gubi'. Lets a
+    query like 'ps' or 'gubi' match without typing the whole name."""
+    out = []
+    prev = ""
+    for ch in name:
+        if ch.isalnum():
+            if not prev.isalnum():  # first letter of a word
+                out.append(ch)
+            elif ch.isupper() and prev.islower():  # camelCase boundary
+                out.append(ch)
+            elif ch.isdigit() and not prev.isdigit():
+                out.append(ch)
+        prev = ch
+    return "".join(out).lower()
+
+
+def _subseq_pos(hay: str, needle: str) -> int | None:
+    """If every char of `needle` appears in `hay` in order (not necessarily
+    contiguous), return the index of the first matched char; else None.
+    Enables fuzzy matches like 'paysvc' -> 'paymentservice'."""
+    ni = 0
+    first = -1
+    for idx, ch in enumerate(hay):
+        if ch == needle[ni]:
+            if ni == 0:
+                first = idx
+            ni += 1
+            if ni == len(needle):
+                return first
+    return None
+
+
+def _match_rank(name_l: str, initials: str, needle: str) -> tuple[int, int] | None:
+    """Score a candidate against `needle` (already lowercased). Returns
+    (tier, position) with lower = more relevant, or None if it doesn't match.
+    Tiers: 0 exact, 1 prefix, 2 word-boundary, 3 acronym, 4 substring, 5 fuzzy."""
+    if name_l == needle:
+        return (0, 0)
+    pos = name_l.find(needle)
+    if pos == 0:
+        return (1, 0)
+    if pos > 0 and not name_l[pos - 1].isalnum():
+        return (2, pos)
+    if len(needle) >= 2 and initials.startswith(needle):
+        return (3, 0)
+    if pos > 0:
+        return (4, pos)
+    if len(needle) >= 3:  # fuzzy is noisy for 1–2 chars; substring covers those
+        sp = _subseq_pos(name_l, needle)
+        if sp is not None:
+            return (5, sp)
+    return None
+
+
 class GraphQuery:
     def __init__(self, graph_path: str | Path):
         self.graph_path = Path(graph_path)
@@ -144,14 +200,26 @@ class GraphQuery:
         return self._comm_sizes
 
     def _search_rows(self) -> list[tuple]:
-        """Prebuilt (id, name_lower, repo, type) index so search_symbols does a
-        light list scan instead of walking the graph dict on every call."""
+        """Prebuilt (id, name_lower, initials, degree, repo, type) index so
+        search does a light list scan instead of walking the graph dict on every
+        call. `initials` powers acronym search; `degree` (how connected a symbol
+        is) breaks ties toward the more central, more-used symbol."""
         if self._name_index is None:
             rows = []
             for nid, a in self.g.nodes(data=True):
                 name = a.get("name")
                 if name:
-                    rows.append((nid, str(name).lower(), a.get("repo"), a.get("type")))
+                    name = str(name)
+                    rows.append(
+                        (
+                            nid,
+                            name.lower(),
+                            _initials(name),
+                            self.g.degree(nid),
+                            a.get("repo"),
+                            a.get("type"),
+                        )
+                    )
             self._name_index = rows
         return self._name_index
 
@@ -220,30 +288,38 @@ class GraphQuery:
         repo: str | None,
         type: str | None,
     ) -> list[str]:
-        """Node ids matching `query` (name substring), most relevant first."""
+        """Node ids matching `query` most relevant first. Matching is exact >
+        prefix > word-boundary > acronym > substring > fuzzy subsequence; ties
+        break by match position, then more-connected symbol, then shorter name,
+        then type priority."""
         needle = query.lower()
         matches = []
-        for nid, name_l, r, ty in self._search_rows():
-            pos = name_l.find(needle)
-            if pos < 0:
-                continue
+        for nid, name_l, initials, deg, r, ty in self._search_rows():
             if repo and r != repo:
                 continue
             if type and ty != type:
                 continue
-            # Relevance: exact name > prefix > word-boundary > substring;
-            # tie-break by earlier position, shorter name, then type priority.
-            if name_l == needle:
-                rank = 0
-            elif pos == 0:
-                rank = 1
-            elif not name_l[pos - 1].isalnum():
-                rank = 2
-            else:
-                rank = 3
-            matches.append((rank, pos, len(name_l), _TYPE_RANK.get(ty, 99), nid))
-        matches.sort(key=lambda m: m[:4])
-        return [m[4] for m in matches[:limit]]
+            scored = _match_rank(name_l, initials, needle)
+            if scored is None:
+                continue
+            tier, pos = scored
+            # Tie-break order: match quality (tier, pos) → kind (prefer real code
+            # symbols over community hubs) → centrality (-deg, more-used first) →
+            # shorter name. So degree only decides between same-kind candidates.
+            key = (name_l, ty, r)
+            matches.append((tier, pos, _TYPE_RANK.get(ty, 99), -deg, len(name_l), nid, key))
+        matches.sort(key=lambda m: m[:5])
+        # Collapse duplicates that would look identical in the picker (same name,
+        # type, and repo), keeping the best-ranked one.
+        out, seen = [], set()
+        for m in matches:
+            if m[6] in seen:
+                continue
+            seen.add(m[6])
+            out.append(m[5])
+            if len(out) >= limit:
+                break
+        return out
 
     def search_symbols(
         self,
