@@ -4,7 +4,12 @@
   display: flex;
   flex-direction: row;
   height: 100vh;
+  height: 100dvh; /* dvh tracks the visible viewport as mobile browser chrome shows/hides */
   overflow: hidden;
+}
+/* Dim backdrop behind the mobile sidebar drawer (hidden on desktop). */
+.sidebar-backdrop {
+  display: none;
 }
 /* --- conversation history sidebar --- */
 .chat-sidebar {
@@ -109,6 +114,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
 }
 .icon-btn {
   flex: none;
@@ -125,13 +131,64 @@
 .icon-btn:hover {
   background: var(--panel-2);
 }
+/* --- Phone / narrow: sidebar becomes an overlay drawer --- */
 @media (max-width: 720px) {
-  /* On narrow screens the sidebar overlays the chat instead of shrinking it. */
   .chat-sidebar {
-    position: absolute;
-    z-index: 20;
-    height: 100vh;
-    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.25);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    width: min(280px, 84vw);
+    height: 100dvh;
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.35);
+  }
+  .chat-sidebar.collapsed {
+    margin-left: calc(-1 * min(280px, 84vw)); /* fully off-screen regardless of width */
+  }
+  /* Backdrop appears while the drawer is open (sidebar not collapsed). */
+  .chat-sidebar:not(.collapsed) ~ .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .messages {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+  .bubble {
+    max-width: 90%;
+  }
+  .msg-foot {
+    max-width: 90%;
+  }
+  .composer {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .chat-header-inner {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .chat-banner {
+    padding: 8px 12px;
+  }
+}
+
+/* --- Small phone: tighten controls so the header stays on one line --- */
+@media (max-width: 420px) {
+  .header-right {
+    gap: 8px;
+  }
+  .mode-btn {
+    padding: 5px 9px;
+  }
+  .lang-select {
+    padding: 6px 22px 6px 8px;
+  }
+  .bubble {
+    max-width: 94%;
   }
 }
 .chat-header {

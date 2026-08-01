@@ -47,6 +47,15 @@ $("composer").addEventListener("submit", (e) => {
 });
 $("sb-new").onclick = newChat;
 $("sb-toggle").onclick = () => $("sidebar").classList.toggle("collapsed");
+// On phones the sidebar is an overlay drawer — start it closed, and let a tap on
+// the dim backdrop close it.
+const MOBILE = () => window.matchMedia("(max-width: 720px)").matches;
+if (MOBILE()) $("sidebar").classList.add("collapsed");
+$("sidebar-backdrop").onclick = () => $("sidebar").classList.add("collapsed");
+// Keep the sidebar visible again when growing back to desktop width.
+window.addEventListener("resize", () => {
+  if (!MOBILE()) $("sidebar").classList.remove("collapsed");
+});
 
 // --- Business ⇄ Technical mode toggle ---
 applyModeTheme();
