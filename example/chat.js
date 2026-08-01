@@ -370,6 +370,15 @@ function detectMention() {
 }
 let mentionTimer = null;
 let mentionSeq = 0; // bumps per search; stale async responses are ignored
+const mentionCache = new Map(); // query -> rows, so re-typed prefixes skip the network
+function symbolItems(rows) {
+  return rows.map((n) => ({
+    label: "#" + n.name,
+    sub: (n.repo || "") + (n.type ? " · " + n.type : ""),
+    kind: "symbol",
+    value: { name: n.name, id: n.id, repo: n.repo },
+  }));
+}
 async function updateMentions() {
   if (!mention) return renderMentionList([]);
   if (mention.type === "@") {
@@ -382,19 +391,21 @@ async function updateMentions() {
       }),
     );
   } else if (mention.query.length >= 1) {
-    const seq = ++mentionSeq;
     const query = mention.query;
+    const cached = mentionCache.get(query);
+    if (cached) {
+      ++mentionSeq; // any in-flight search is now stale
+      return renderMentionList(symbolItems(cached));
+    }
+    const seq = ++mentionSeq;
     try {
-      const rows = await apiGet("/api/search?q=" + encodeURIComponent(query) + "&limit=8");
-      if (seq !== mentionSeq) return; // a newer keystroke already fired — drop stale result
-      renderMentionList(
-        rows.map((n) => ({
-          label: "#" + n.name,
-          sub: (n.repo || "") + (n.type ? " · " + n.type : ""),
-          kind: "symbol",
-          value: { name: n.name, id: n.id, repo: n.repo },
-        })),
+      const rows = await apiGet(
+        "/api/search?compact=1&limit=8&q=" + encodeURIComponent(query),
       );
+      mentionCache.set(query, rows);
+      if (mentionCache.size > 100) mentionCache.delete(mentionCache.keys().next().value);
+      if (seq !== mentionSeq) return; // a newer keystroke already fired — drop stale result
+      renderMentionList(symbolItems(rows));
     } catch {
       if (seq === mentionSeq) renderMentionList([]);
     }

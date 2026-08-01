@@ -213,13 +213,14 @@ class GraphQuery:
             "top_communities": top,
         }
 
-    def search_symbols(
+    def _ranked_ids(
         self,
         query: str,
-        limit: int = 20,
-        repo: str | None = None,
-        type: str | None = None,
-    ) -> list[dict]:
+        limit: int,
+        repo: str | None,
+        type: str | None,
+    ) -> list[str]:
+        """Node ids matching `query` (name substring), most relevant first."""
         needle = query.lower()
         matches = []
         for nid, name_l, r, ty in self._search_rows():
@@ -242,7 +243,38 @@ class GraphQuery:
                 rank = 3
             matches.append((rank, pos, len(name_l), _TYPE_RANK.get(ty, 99), nid))
         matches.sort(key=lambda m: m[:4])
-        return [self._view(m[4]) for m in matches[:limit]]
+        return [m[4] for m in matches[:limit]]
+
+    def search_symbols(
+        self,
+        query: str,
+        limit: int = 20,
+        repo: str | None = None,
+        type: str | None = None,
+    ) -> list[dict]:
+        return [self._view(nid) for nid in self._ranked_ids(query, limit, repo, type)]
+
+    def search_brief(
+        self,
+        query: str,
+        limit: int = 20,
+        repo: str | None = None,
+        type: str | None = None,
+    ) -> list[dict]:
+        """Slim search results (id/name/repo/type only) for autocomplete pickers,
+        avoiding the full _view payload (path, qualified_name, community, ...)."""
+        out = []
+        for nid in self._ranked_ids(query, limit, repo, type):
+            a = self.g.nodes[nid]
+            out.append(
+                {
+                    "id": nid,
+                    "name": a.get("name"),
+                    "repo": a.get("repo"),
+                    "type": a.get("type"),
+                }
+            )
+        return out
 
     def get_symbol(self, node_id: str) -> dict:
         if node_id not in self.g.nodes:

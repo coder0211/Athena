@@ -231,9 +231,16 @@ def status() -> dict:
 
 @app.get("/api/search")
 def search(
-    q: str, limit: int = 20, repo: str | None = None, type: str | None = None
+    q: str,
+    limit: int = 20,
+    repo: str | None = None,
+    type: str | None = None,
+    compact: bool = False,
 ) -> list[dict]:
-    return get_engine().search_symbols(q, limit=limit, repo=repo, type=type)
+    eng = get_engine()
+    if compact:  # autocomplete pickers only need id/name/repo/type
+        return eng.search_brief(q, limit=limit, repo=repo, type=type)
+    return eng.search_symbols(q, limit=limit, repo=repo, type=type)
 
 
 @app.get("/api/symbol/{node_id:path}")
