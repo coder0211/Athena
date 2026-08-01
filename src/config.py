@@ -44,3 +44,11 @@ def int_env(name: str, default: int) -> int:
         return int(os.environ[name])
     except (KeyError, ValueError, TypeError):
         return default
+
+
+def float_env(name: str, default: float) -> float:
+    """Read a float env var at call time, falling back to `default` if unset/invalid."""
+    try:
+        return float(os.environ[name])
+    except (KeyError, ValueError, TypeError):
+        return default

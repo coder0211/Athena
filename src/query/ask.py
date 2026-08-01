@@ -13,18 +13,21 @@ import os
 import config
 from query.engine import GraphQuery
 
-MODEL = os.environ.get("ATHENA_ASK_MODEL", "gpt-4o")
+# Read at CALL time (not import), so values from .env — which config.load_env()
+# loads at app startup, after this module is imported — are actually picked up.
+def _model() -> str:
+    return os.environ.get("ATHENA_ASK_MODEL", "gpt-4o")
+
 
 # Generation params (env-overridable). A lower temperature makes the tool-using
 # loop converge faster (fewer wandering round-trips); max_tokens caps the final
 # answer; parallel_tool_calls lets the model batch lookups into one turn.
-TEMPERATURE = float(os.environ.get("ATHENA_TEMPERATURE", "0.3"))
-MAX_TOKENS = int(os.environ.get("ATHENA_MAX_TOKENS", "2048"))
-_GEN_PARAMS = {
-    "temperature": TEMPERATURE,
-    "max_tokens": MAX_TOKENS,
-    "parallel_tool_calls": True,
-}
+def _gen_params() -> dict:
+    return {
+        "temperature": config.float_env("ATHENA_TEMPERATURE", 0.3),
+        "max_tokens": config.int_env("ATHENA_MAX_TOKENS", 2048),
+        "parallel_tool_calls": True,
+    }
 
 # Shared investigation instructions (same for both audiences).
 _INVESTIGATE = (
@@ -397,11 +400,11 @@ def answer(
     for _ in range(max_steps):
         try:
             resp = client.chat.completions.create(
-                model=MODEL,
+                model=_model(),
                 messages=messages,
                 tools=_TOOLS,
                 tool_choice="auto",
-                **_GEN_PARAMS,
+                **_gen_params(),
             )
         except Exception as e:  # rate limits / API errors → clean message, no 500
             name = type(e).__name__
@@ -470,12 +473,12 @@ def answer_stream(
     for _ in range(max_steps):
         try:
             stream = client.chat.completions.create(
-                model=MODEL,
+                model=_model(),
                 messages=messages,
                 tools=_TOOLS,
                 tool_choice="auto",
                 stream=True,
-                **_GEN_PARAMS,
+                **_gen_params(),
             )
         except Exception as e:  # rate limits / API errors → clean message, no crash
             name = type(e).__name__

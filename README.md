@@ -79,10 +79,42 @@ and structured search still work — only the natural-language Q&A is disabled.
 
 ### Docker
 
+The image bundles everything the pipeline needs — Python deps, the `codegraph`
+CLI (Node 22), Graphify, and `git`/`ssh` for cloning repos. It serves the web UI
+
+- API on port **8000**. Requires Docker with Compose v2.
+
 ```bash
-cp example.env .env      # fill in OPENAI_API_KEY
-docker compose up --build   # → http://localhost:8000
+# 1. Config + files the container mounts from the host.
+#    Create these *before* the first run — otherwise Docker creates the two
+#    YAML files as empty directories on the bind mount.
+cp example.env .env                       # then set OPENAI_API_KEY
+cp example.sources.yaml sources.yaml      # your repos (editable later from the UI)
+touch workspace.yaml                      # pipeline state (starts empty)
+mkdir -p .sources .knowledge              # cloned repos + built graph, persisted to host
+
+# 2. Build the image and start the app.
+docker compose up --build                 # → http://localhost:8000  (Ctrl-C to stop)
+#   or run detached:  docker compose up --build -d
+
+# 3. Build the knowledge graph (fetch + extract + merge). Either click through the
+#    web UI at http://localhost:8000, or run the pipeline inside the container:
+docker compose exec athena python src/main.py all
 ```
+
+Notes:
+
+- **Private repos over SSH** — Compose mounts `~/.ssh` read-only so the container
+  can clone `git@…` remotes with your keys.
+- **Persistence** — `sources.yaml`, `workspace.yaml`, `.sources/`, and
+  `.knowledge/` are bind-mounted, so your config and the built graph survive
+  `docker compose down` and rebuilds.
+- **Live code edits** — `src/` and `example/` are mounted; apply changes with
+  `docker compose restart` (no rebuild needed).
+- **Q&A** — as with the local setup, without `OPENAI_API_KEY` in `.env` only the
+  graph and structured search work; natural-language Q&A stays disabled.
+
+Stop and clean up with `docker compose down`.
 
 ## Configuration
 
@@ -91,15 +123,15 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | Variable                | Default                 | Purpose                                            |
 | ----------------------- | ----------------------- | -------------------------------------------------- |
 | `OPENAI_API_KEY`        | —                       | Enables natural-language Q&A. Unset → search only. |
-| `ATHENA_ASK_MODEL`      | `gpt-4o`                | Any OpenAI model with tool support.                |
+| `ATHENA_ASK_MODEL`      | `gpt-4.1-nano`          | Any OpenAI model with tool support.                |
 | `ATHENA_GRAPH`          | `.knowledge/graph.json` | Path to the built graph.                           |
 | `ATHENA_TEMPERATURE`    | `0.3`                   | Q&A sampling temperature (lower = more focused).   |
 | `ATHENA_MAX_TOKENS`     | `2048`                  | Max tokens for a Q&A answer.                       |
-| `ATHENA_MAX_STEPS`      | `8`                     | Max tool-calling rounds per question.              |
-| `ATHENA_MAX_CODE_LINES` | `160`                   | Max lines returned by one source read.             |
-| `ATHENA_CODE_CONTEXT`   | `3`                     | Extra lines shown around a symbol.                 |
-| `ATHENA_IMPACT_DEPTH`   | `2`                     | Default hops for impact / blast-radius.            |
-| `ATHENA_PATH_MAX_LEN`   | `6`                     | Default max hops for shortest-path search.         |
+| `ATHENA_MAX_STEPS`      | `16`                    | Max tool-calling rounds per question.              |
+| `ATHENA_MAX_CODE_LINES` | `5000`                  | Max lines returned by one source read.             |
+| `ATHENA_CODE_CONTEXT`   | `100`                   | Extra lines shown around a symbol.                 |
+| `ATHENA_IMPACT_DEPTH`   | `10`                    | Default hops for impact / blast-radius.            |
+| `ATHENA_PATH_MAX_LEN`   | `20`                    | Default max hops for shortest-path search.         |
 
 ## HTTP API
 
