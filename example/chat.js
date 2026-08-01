@@ -70,7 +70,14 @@ function formatAnswer(text) {
   return parts
     .map((part, i) => {
       if (i % 2 === 1) {
-        const body = part.replace(/^\w*\n/, ""); // drop the ```lang line
+        const lang = (part.match(/^(\w+)\r?\n/) || ["", ""])[1].toLowerCase();
+        const body = part.replace(/^\w*\r?\n/, ""); // drop the ```lang line
+        if (lang === "mermaid") {
+          // Keep the raw source as the code's textContent — renderMermaid()
+          // reads it back and swaps in an SVG once the lib is loaded. If the
+          // lib can't load (offline), this source view stays as the fallback.
+          return `<div class="mermaid-block"><pre class="mermaid-src"><code>${escapeHtml(body)}</code></pre></div>`;
+        }
         return `<pre><code>${highlightCode(body)}</code></pre>`;
       }
       return escapeHtml(part)
@@ -79,6 +86,64 @@ function formatAnswer(text) {
         .replace(/\n/g, "<br>");
     })
     .join("");
+}
+
+// --- mermaid diagrams: lazy-loaded from CDN only when a diagram appears ---
+let mermaidLoading = null;
+function loadMermaid() {
+  if (window.mermaid) return Promise.resolve(window.mermaid);
+  if (mermaidLoading) return mermaidLoading;
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  mermaidLoading = import(
+    "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
+  ).then((mod) => {
+    const mermaid = mod.default;
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default" });
+    window.mermaid = mermaid;
+    return mermaid;
+  });
+  return mermaidLoading;
+}
+// Render any not-yet-rendered mermaid blocks inside `scope` (an element).
+async function renderMermaid(scope) {
+  const blocks = scope.querySelectorAll(".mermaid-block:not([data-rendered])");
+  if (!blocks.length) return;
+  let mermaid;
+  try {
+    mermaid = await loadMermaid();
+  } catch {
+    return; // CDN unreachable — leave the source fallback in place
+  }
+  for (const block of blocks) {
+    block.setAttribute("data-rendered", "1"); // guard against double render
+    const src = (block.querySelector("code")?.textContent || "").trim();
+    if (!src) continue;
+    try {
+      const { svg } = await mermaid.render("mmd-" + Math.random().toString(36).slice(2), src);
+      block.innerHTML = svg;
+      block.append(mermaidCopyButton(src)); // SVG replaced the source — offer it back
+    } catch {
+      block.removeAttribute("data-rendered"); // invalid diagram → keep source visible
+    }
+  }
+  scrollDown();
+}
+// Small corner button that copies a rendered diagram's mermaid source.
+function mermaidCopyButton(src) {
+  const btn = el("button", "mermaid-copy", ICON_COPY);
+  btn.type = "button";
+  btn.title = t().copyLabel;
+  btn.setAttribute("aria-label", t().copyLabel);
+  btn.onclick = async () => {
+    if (!(await copyText(src))) return;
+    btn.innerHTML = ICON_CHECK;
+    btn.classList.add("done");
+    setTimeout(() => {
+      btn.innerHTML = ICON_COPY;
+      btn.classList.remove("done");
+    }, 1500);
+  };
+  return btn;
 }
 
 function scrollDown() {
@@ -125,6 +190,7 @@ function addAssistant(text, steps, isError) {
   const bubble = el("div", "bubble" + (isError ? " error" : ""), formatAnswer(text));
   row.append(bubble);
   if (!isError) {
+    renderMermaid(bubble);
     row.append(buildFooter(text, steps));
   }
   $("messages").append(row);
@@ -308,6 +374,7 @@ async function runAsk({ question, priorHistory, scope }) {
       addAssistant(t().errorPrefix + (streamError || "empty response"), null, true);
     } else {
       bubble.innerHTML = formatAnswer(acc); // final render
+      renderMermaid(bubble); // draw any mermaid diagrams (streaming showed source)
       row.append(buildFooter(acc, steps));
       pruneRegen();
       history.push({ role: "assistant", content: acc });

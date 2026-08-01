@@ -826,6 +826,57 @@ a.btn {
   background: none;
   padding: 0;
 }
+/* Mermaid diagrams: centred, scrollable, rendered SVG replaces the source */
+.mermaid-block {
+  position: relative;
+  margin: 8px 0;
+  padding: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: center;
+}
+/* Copy-source button, top-right of a rendered diagram (fades in on hover) */
+.mermaid-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+.mermaid-block:hover .mermaid-copy,
+.mermaid-copy:focus-visible {
+  opacity: 1;
+}
+.mermaid-copy:hover {
+  color: var(--text);
+}
+.mermaid-copy.done {
+  color: var(--accent, #3fb950);
+  opacity: 1;
+}
+.mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-block .mermaid-src {
+  margin: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
 /* Syntax highlight tokens (dark theme defaults — GitHub-ish palette) */
 .tok-comment {
   color: #8b949e;
