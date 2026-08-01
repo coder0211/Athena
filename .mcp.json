@@ -1,10 +1,10 @@
 {
   "mcpServers": {
     "athena": {
-      "command": "/Users/hoa.nguyen3/Documents/Athena/venv/bin/python",
-      "args": ["/Users/hoa.nguyen3/Documents/Athena/src/query/server.py"],
+      "command": "python",
+      "args": ["src/query/server.py"],
       "env": {
-        "ATHENA_GRAPH": "/Users/hoa.nguyen3/Documents/Athena/.knowledge/graph.json"
+        "ATHENA_GRAPH": ".knowledge/graph.json"
       }
     }
   }

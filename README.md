@@ -1,12 +1,20 @@
 <h1><img src="example/logo-owl-solid.svg" alt="" width="30" height="30" align="absmiddle" /> Athena</h1>
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](https://modelcontextprotocol.io/)
+
 **Turn your Git repositories into a queryable code knowledge graph — then ask
 questions about how the product works in plain language.**
+
+<p align="center"><img src="example/screenshot.png" alt="Athena chat UI" width="720" /></p>
+
+> **Screenshot:** replace this line with a screenshot of the chat UI (see comment above).
 
 Athena clones your repos, extracts their structure into a unified graph (symbols,
 call/reference edges, concept communities), and serves it three ways over one
 shared query engine: a **web chat UI**, an **HTTP API**, and an **MCP server**.
-The natural-language Q&A reads the *real* source code and explains it — for
+The natural-language Q&A reads the _real_ source code and explains it — for
 business stakeholders and developers alike.
 
 ---
@@ -44,6 +52,9 @@ Everything downstream of L5 depends only on **`GraphQuery`**. See
 
 ## Quick start
 
+**Prerequisites:** Python 3.10+ · Node 22.5+ (for the `codegraph` extractor) ·
+an OpenAI API key (optional — only for natural-language Q&A).
+
 ```bash
 # 1. Install
 pip install -r requirements.txt
@@ -77,18 +88,18 @@ docker compose up --build   # → http://localhost:8000
 
 Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 
-| Variable                | Default                  | Purpose                                             |
-| ----------------------- | ------------------------ | --------------------------------------------------- |
-| `OPENAI_API_KEY`        | —                        | Enables natural-language Q&A. Unset → search only.  |
-| `ATHENA_ASK_MODEL`      | `gpt-4o`                 | Any OpenAI model with tool support.                 |
-| `ATHENA_GRAPH`          | `.knowledge/graph.json`  | Path to the built graph.                            |
-| `ATHENA_TEMPERATURE`    | `0.3`                    | Q&A sampling temperature (lower = more focused).    |
-| `ATHENA_MAX_TOKENS`     | `2048`                   | Max tokens for a Q&A answer.                        |
-| `ATHENA_MAX_STEPS`      | `8`                      | Max tool-calling rounds per question.               |
-| `ATHENA_MAX_CODE_LINES` | `160`                    | Max lines returned by one source read.              |
-| `ATHENA_CODE_CONTEXT`   | `3`                      | Extra lines shown around a symbol.                  |
-| `ATHENA_IMPACT_DEPTH`   | `2`                      | Default hops for impact / blast-radius.             |
-| `ATHENA_PATH_MAX_LEN`   | `6`                      | Default max hops for shortest-path search.          |
+| Variable                | Default                 | Purpose                                            |
+| ----------------------- | ----------------------- | -------------------------------------------------- |
+| `OPENAI_API_KEY`        | —                       | Enables natural-language Q&A. Unset → search only. |
+| `ATHENA_ASK_MODEL`      | `gpt-4o`                | Any OpenAI model with tool support.                |
+| `ATHENA_GRAPH`          | `.knowledge/graph.json` | Path to the built graph.                           |
+| `ATHENA_TEMPERATURE`    | `0.3`                   | Q&A sampling temperature (lower = more focused).   |
+| `ATHENA_MAX_TOKENS`     | `2048`                  | Max tokens for a Q&A answer.                       |
+| `ATHENA_MAX_STEPS`      | `8`                     | Max tool-calling rounds per question.              |
+| `ATHENA_MAX_CODE_LINES` | `160`                   | Max lines returned by one source read.             |
+| `ATHENA_CODE_CONTEXT`   | `3`                     | Extra lines shown around a symbol.                 |
+| `ATHENA_IMPACT_DEPTH`   | `2`                     | Default hops for impact / blast-radius.            |
+| `ATHENA_PATH_MAX_LEN`   | `6`                     | Default max hops for shortest-path search.         |
 
 ## HTTP API
 
@@ -140,6 +151,12 @@ src/
 example/               web UI (chat + manage) served at /
 ```
 
+## Contributing
+
+Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
+for local setup and guidelines, and [`SECURITY.md`](SECURITY.md) to report a
+vulnerability privately.
+
 ## License
 
-See [`LICENSE`](LICENSE).
+Released under the MIT License — see [`LICENSE`](LICENSE).
