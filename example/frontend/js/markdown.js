@@ -47,10 +47,72 @@ export function formatAnswer(text) {
         }
         return `<pre><code>${highlightCode(body)}</code></pre>`;
       }
-      return escapeHtml(part)
-        .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(/\n/g, "<br>");
+      return renderBlocks(part);
     })
     .join("");
+}
+
+// Inline markdown: escape, then `code`, **bold**, *italic*, and [text](url).
+function renderInline(s) {
+  return escapeHtml(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+
+// Block-level markdown: ATX headings (#..######), unordered (-, *) and ordered
+// (1.) lists, and paragraphs (consecutive lines joined with <br>). Small and
+// dependency-free; fenced code + mermaid are handled by the caller.
+function renderBlocks(text) {
+  const lines = text.split(/\r?\n/);
+  let html = "";
+  let list = null; // 'ul' | 'ol' | null
+  let para = [];
+  const flushPara = () => {
+    if (para.length) {
+      html += `<p>${para.map(renderInline).join("<br>")}</p>`;
+      para = [];
+    }
+  };
+  const closeList = () => {
+    if (list) {
+      html += `</${list}>`;
+      list = null;
+    }
+  };
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    let m;
+    if (!line.trim()) {
+      flushPara();
+      closeList();
+    } else if ((m = line.match(/^(#{1,6})\s+(.*)$/))) {
+      flushPara();
+      closeList();
+      html += `<h${m[1].length} class="md-h">${renderInline(m[2])}</h${m[1].length}>`;
+    } else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+      flushPara();
+      if (list !== "ul") {
+        closeList();
+        html += "<ul>";
+        list = "ul";
+      }
+      html += `<li>${renderInline(m[1])}</li>`;
+    } else if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) {
+      flushPara();
+      if (list !== "ol") {
+        closeList();
+        html += "<ol>";
+        list = "ol";
+      }
+      html += `<li>${renderInline(m[1])}</li>`;
+    } else {
+      closeList();
+      para.push(line);
+    }
+  }
+  flushPara();
+  closeList();
+  return html;
 }
