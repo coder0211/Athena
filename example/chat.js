@@ -369,6 +369,7 @@ function detectMention() {
   mention = m ? { type: m[1], query: m[2], start: pos - m[0].length } : null;
 }
 let mentionTimer = null;
+let mentionSeq = 0; // bumps per search; stale async responses are ignored
 async function updateMentions() {
   if (!mention) return renderMentionList([]);
   if (mention.type === "@") {
@@ -381,8 +382,11 @@ async function updateMentions() {
       }),
     );
   } else if (mention.query.length >= 1) {
+    const seq = ++mentionSeq;
+    const query = mention.query;
     try {
-      const rows = await apiGet("/api/search?q=" + encodeURIComponent(mention.query) + "&limit=8");
+      const rows = await apiGet("/api/search?q=" + encodeURIComponent(query) + "&limit=8");
+      if (seq !== mentionSeq) return; // a newer keystroke already fired — drop stale result
       renderMentionList(
         rows.map((n) => ({
           label: "#" + n.name,
@@ -392,9 +396,10 @@ async function updateMentions() {
         })),
       );
     } catch {
-      renderMentionList([]);
+      if (seq === mentionSeq) renderMentionList([]);
     }
   } else {
+    ++mentionSeq; // invalidate any in-flight search
     renderMentionList([{ label: t().mentionHint, kind: "hint" }]);
   }
 }

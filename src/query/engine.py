@@ -38,6 +38,18 @@ _DEPENDENCY_RELATIONS = {
 }
 _USE_RELATIONS = {"CALLS", "REFERENCES", "INSTANTIATES"}
 
+# Search relevance: when scores tie, surface the more "code-central" kinds first.
+_TYPE_RANK = {
+    "Class": 0,
+    "Widget": 0,
+    "Enum": 0,
+    "Method": 1,
+    "Function": 1,
+    "Constant": 2,
+    "Community": 3,
+    "File": 4,
+}
+
 
 class GraphQuery:
     def __init__(self, graph_path: str | Path):
@@ -209,18 +221,28 @@ class GraphQuery:
         type: str | None = None,
     ) -> list[dict]:
         needle = query.lower()
-        out = []
+        matches = []
         for nid, name_l, r, ty in self._search_rows():
-            if needle not in name_l:
+            pos = name_l.find(needle)
+            if pos < 0:
                 continue
             if repo and r != repo:
                 continue
             if type and ty != type:
                 continue
-            out.append(self._view(nid))
-            if len(out) >= limit:
-                break
-        return out
+            # Relevance: exact name > prefix > word-boundary > substring;
+            # tie-break by earlier position, shorter name, then type priority.
+            if name_l == needle:
+                rank = 0
+            elif pos == 0:
+                rank = 1
+            elif not name_l[pos - 1].isalnum():
+                rank = 2
+            else:
+                rank = 3
+            matches.append((rank, pos, len(name_l), _TYPE_RANK.get(ty, 99), nid))
+        matches.sort(key=lambda m: m[:4])
+        return [self._view(m[4]) for m in matches[:limit]]
 
     def get_symbol(self, node_id: str) -> dict:
         if node_id not in self.g.nodes:
