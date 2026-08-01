@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Athena Chat</title>
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/chat.css" />
+  </head>
+  <body class="chat-page">
+    <aside id="sidebar" class="chat-sidebar">
+      <div class="sidebar-head">
+        <div class="chat-title"><img class="brand-mark" src="logo.svg" alt="" width="20" height="20" /> Athena</div>
+        <button id="sb-new" class="btn primary sb-new" type="button">+ New chat</button>
+      </div>
+      <div id="conv-list" class="conv-list"></div>
+    </aside>
+
+    <div class="chat-main">
+      <header class="chat-header">
+        <div class="chat-header-inner">
+          <div class="header-side header-left">
+            <button id="sb-toggle" class="icon-btn" type="button" title="Toggle history" aria-label="Toggle history">
+              ☰
+            </button>
+            <img class="brand-mark header-logo" src="logo.svg" alt="Athena" width="20" height="20" />
+            <div id="header-title" class="header-title">New chat</div>
+          </div>
+          <div class="header-side header-right">
+            <div class="mode-toggle" id="mode-toggle" title="How answers are explained">
+              <button class="mode-btn active" data-mode="business" type="button">Business</button>
+              <button class="mode-btn" data-mode="technical" type="button">Technical</button>
+            </div>
+            <select id="lang-select" class="lang-select" title="Response language">
+              <option value="en">English</option>
+              <option value="vi">Tiếng Việt</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <div id="banner" class="chat-banner" hidden></div>
+
+      <main id="messages" class="messages">
+        <div id="empty" class="chat-empty">
+          <h2>Understand how the product works</h2>
+          <p>
+            Ask in plain language — it reads the real code and explains the business flow, step by step. No technical
+            background needed.
+          </p>
+          <p class="chat-empty-tip">
+            Tip: type <b>@</b> to focus on one app, <b>#</b> to focus on a specific feature/screen.
+          </p>
+          <div id="suggestions" class="suggestions"></div>
+        </div>
+      </main>
+
+      <form id="composer" class="composer">
+        <div class="composer-main">
+          <div id="scope-bar" class="scope-bar"></div>
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Ask anything…  @repo or #symbol to narrow scope · Enter to send"
+          ></textarea>
+          <div id="mention-list" class="mention-list" hidden></div>
+        </div>
+        <button id="send" class="btn primary" type="submit">Send</button>
+      </form>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

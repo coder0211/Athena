@@ -13,6 +13,7 @@ import os
 import config
 from query.engine import GraphQuery
 
+
 # Read at CALL time (not import), so values from .env — which config.load_env()
 # loads at app startup, after this module is imported — are actually picked up.
 def _model() -> str:
@@ -28,6 +29,7 @@ def _gen_params() -> dict:
         "max_tokens": config.int_env("ATHENA_MAX_TOKENS", 2048),
         "parallel_tool_calls": True,
     }
+
 
 # Shared investigation instructions (same for both audiences).
 _INVESTIGATE = (
@@ -95,13 +97,13 @@ _DIAGRAM = (
     "flows/architecture and `sequenceDiagram` for request/response interactions. "
     "Keep it focused on the main path — roughly 5–12 nodes, not the whole system.\n"
     "SYNTAX (a diagram that fails to parse shows as nothing, so follow these exactly):\n"
-    "- ALWAYS quote node text: `A[\"Charge the card\"]`, never `A[Charge the card]`. "
+    '- ALWAYS quote node text: `A["Charge the card"]`, never `A[Charge the card]`. '
     "This is required whenever the label contains a space, parenthesis, slash, colon, "
     "comma, dot, or any punctuation.\n"
     "- Node IDs are bare alphanumeric tokens (A, B, step1); the human text goes inside "
     "the quoted brackets, not in the ID.\n"
     "- No backticks, markdown, HTML, or code snippets inside the diagram; labels are "
-    "plain text only. Keep edge labels short: `A -->|\"if declined\"| B`.\n"
+    'plain text only. Keep edge labels short: `A -->|"if declined"| B`.\n'
     "- Write the diagram in the same language as the rest of the answer.\n"
     "LABELS: plain-language, product-level labels for a business reader (no code "
     "identifiers); real class/method/file names for a developer."

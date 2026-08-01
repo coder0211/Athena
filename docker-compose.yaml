@@ -1,6 +1,7 @@
 services:
   athena:
     build: .
+    image: athena-app  # tag it once so chat-backend can reuse the same image
     ports:
       - "8000:8000"
     # OPENAI_API_KEY / ATHENA_ASK_MODEL come from .env (gitignored, not baked into the image).
@@ -9,6 +10,7 @@ services:
     volumes:
       # App code — mounted so edits apply on `docker compose restart` (no rebuild).
       - ./src:/app/src
+      - ./dashboard:/app/dashboard
       - ./example:/app/example
       # Repo config (editable from the UI) and pipeline outputs, persisted to the host.
       - ./sources.yaml:/app/sources.yaml
@@ -19,3 +21,36 @@ services:
       # SSH keys so the container can clone private repos (git@…). Read-only.
       - ${HOME}/.ssh:/root/.ssh:ro
     restart: unless-stopped
+
+  # Stateful chat layer (conversations + history in SQLite) in front of the graph
+  # API. Reuses the athena image — same deps — and just runs a different command.
+  # Open http://localhost:8100/chat for the persisted chat UI.
+  chat-backend:
+    image: athena-app
+    command:
+      - python
+      - -m
+      - uvicorn
+      - app:app
+      - --app-dir
+      - example/backend
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8100"
+    ports:
+      - "8100:8100"
+    environment:
+      # Reach the graph API over the compose network; store the DB on a volume.
+      ATHENA_GRAPH_API: http://athena:8000
+      ATHENA_CHAT_DB: /data/chat.db
+    volumes:
+      - ./src:/app/src
+      - ./example:/app/example
+      - chat-data:/data  # SQLite conversations/history, persisted across restarts
+    depends_on:
+      - athena
+    restart: unless-stopped
+
+volumes:
+  chat-data:

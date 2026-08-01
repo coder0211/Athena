@@ -228,3 +228,10 @@ graphify-out/
 
 
 workspace.yaml
+
+# Example chat backend — local SQLite store (conversations + history).
+# In Docker this lives on the chat-data volume; locally it defaults here.
+example/backend/data/
+*.db
+*.db-wal
+*.db-shm

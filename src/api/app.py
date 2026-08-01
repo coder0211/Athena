@@ -42,7 +42,7 @@ from utils.workspace import (
 config.load_env()  # pick up OPENAI_API_KEY / ATHENA_* from .env
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_UI_DIR = _PROJECT_ROOT / "example"
+_UI_DIR = _PROJECT_ROOT / "dashboard"  # this service hosts the management dashboard
 _GRAPH_PATH = config.graph_path()
 
 app = FastAPI(title="Athena", description="Code knowledge graph API")
@@ -298,14 +298,9 @@ def ask_stream(req: AskRequest) -> StreamingResponse:
     )
 
 
-# --- pages + static web UI (registered last so /api/* wins) --------------
-@app.get("/chat")
-def chat_page():
-    from fastapi.responses import FileResponse
-
-    return FileResponse(_UI_DIR / "chat.html")
-
-
+# --- management dashboard (static web UI; registered last so /api/* wins) --
+# This service hosts the management dashboard only. The chat UI lives on the
+# separate chat backend (example/backend, default :8100) so history is persisted.
 if _UI_DIR.exists():
     app.mount("/", StaticFiles(directory=str(_UI_DIR), html=True), name="ui")
 

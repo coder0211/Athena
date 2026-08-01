@@ -1,0 +1,694 @@
+/* Chat UI: sidebar + conversation history, header, message stream, composer,
+   @/# mentions, mode toggle, and mermaid/markdown rendering. */
+.chat-page {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  overflow: hidden;
+}
+/* --- conversation history sidebar --- */
+.chat-sidebar {
+  width: 264px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  transition: margin-left 0.18s ease;
+}
+.chat-sidebar.collapsed {
+  margin-left: -264px;
+}
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 10px;
+}
+.sidebar-head .chat-title {
+  font-size: 15px;
+  margin-right: auto;
+}
+.sb-new {
+  white-space: nowrap;
+}
+.conv-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.conv-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px 10px;
+  text-align: center;
+}
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.conv-item:hover {
+  background: var(--panel-2);
+}
+.conv-item.active {
+  background: var(--mode-tint, var(--panel-2));
+  border-color: var(--mode-accent, var(--border));
+}
+.conv-main {
+  flex: 1;
+  min-width: 0;
+}
+.conv-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conv-preview {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.conv-del {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+.conv-item:hover .conv-del,
+.conv-item.active .conv-del {
+  opacity: 1;
+}
+.conv-del:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.chat-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.icon-btn {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+.icon-btn:hover {
+  background: var(--panel-2);
+}
+@media (max-width: 720px) {
+  /* On narrow screens the sidebar overlays the chat instead of shrinking it. */
+  .chat-sidebar {
+    position: absolute;
+    z-index: 20;
+    height: 100vh;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.25);
+  }
+}
+.chat-header {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+.chat-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+/* Left group (toggle + title) grows and truncates; the controls hug the right. */
+.header-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.header-right {
+  flex: none;
+  gap: 12px;
+}
+.header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Brand mark in the header — shown only while the sidebar (which holds the main
+   logo) is collapsed, so the logo never disappears entirely. The .header-left
+   qualifier outranks the base .brand-mark rule that would otherwise show it. */
+.header-left .header-logo {
+  display: none;
+  flex: none;
+}
+.chat-sidebar.collapsed ~ .chat-main .header-left .header-logo {
+  display: inline-block;
+}
+.chat-title {
+  font-size: 16px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-banner {
+  padding: 8px 20px;
+  font-size: 13px;
+  color: #d4a017;
+  background: #b8860020;
+  border-bottom: 1px solid var(--border);
+}
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+.chat-msg {
+  display: flex;
+}
+.chat-msg.user {
+  justify-content: flex-end;
+}
+.chat-msg.assistant {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.bubble {
+  max-width: 82%;
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  word-wrap: break-word;
+}
+.chat-msg.user .bubble {
+  background: var(--mode-send);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.chat-msg.assistant .bubble {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.bubble.error {
+  border-color: var(--err);
+  color: var(--err);
+}
+.bubble pre {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-size: 12.5px;
+}
+.bubble pre code {
+  background: none;
+  padding: 0;
+}
+/* Mermaid diagrams: centred, scrollable, rendered SVG replaces the source */
+.mermaid-block {
+  position: relative;
+  margin: 8px 0;
+  padding: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: center;
+}
+/* Copy-source button, top-right of a rendered diagram (fades in on hover) */
+.mermaid-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+.mermaid-block:hover .mermaid-copy,
+.mermaid-copy:focus-visible {
+  opacity: 1;
+}
+.mermaid-copy:hover {
+  color: var(--text);
+}
+.mermaid-copy.done {
+  color: var(--accent, #3fb950);
+  opacity: 1;
+}
+.mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-block .mermaid-src {
+  margin: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+/* Syntax highlight tokens (dark theme defaults — GitHub-ish palette) */
+.tok-comment {
+  color: #8b949e;
+  font-style: italic;
+}
+.tok-string {
+  color: #a5d6ff;
+}
+.tok-number {
+  color: #79c0ff;
+}
+.tok-keyword {
+  color: #ff7b72;
+}
+@media (prefers-color-scheme: light) {
+  .tok-comment {
+    color: #6e7781;
+  }
+  .tok-string {
+    color: #0a3069;
+  }
+  .tok-number {
+    color: #0550ae;
+  }
+  .tok-keyword {
+    color: #cf222e;
+  }
+}
+/* Footer under an assistant answer: tools used (left) + copy (right) */
+.msg-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 7px;
+  padding-left: 2px;
+  max-width: 82%; /* line up with the bubble width */
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.tools-ic {
+  display: inline-flex;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.tool-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.msg-actions {
+  margin-left: auto; /* push the action group to the right edge of the message */
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.75;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+.act-btn svg {
+  display: block;
+  flex: none;
+}
+.act-btn:hover {
+  opacity: 1;
+  color: var(--text);
+  background: var(--panel-2);
+}
+.act-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: none;
+  color: var(--muted);
+}
+.copy-btn.done {
+  opacity: 1;
+  color: var(--ok);
+  cursor: default;
+}
+.chat-msg.typing .bubble {
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+}
+.typing-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: blink 1.2s infinite;
+}
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes blink {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+.chat-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--muted);
+  max-width: 560px;
+}
+.chat-empty h2 {
+  color: var(--text);
+  margin: 0 0 6px;
+}
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 18px;
+}
+.suggestion {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.suggestion:hover {
+  border-color: var(--accent);
+}
+/* Mode themes — the composer switches accent so Business vs Technical is
+   distinguishable at a glance. Defaults to the business (blue) palette. */
+.chat-page {
+  --mode-accent: #4f9cf9; /* vivid — used for borders/focus ring */
+  --mode-accent-2: #2f7de0;
+  --mode-tint: rgba(79, 156, 249, 0.09);
+  --mode-send: #1f6fd0; /* darker — white text on Send hits WCAG AA (~4.95:1) */
+  --mode-send-hover: #195cb0;
+}
+.chat-page[data-mode="technical"] {
+  --mode-accent: #fb923c; /* vivid orange — borders/focus (no text over it) */
+  --mode-accent-2: #ea7c1f;
+  --mode-tint: rgba(251, 146, 60, 0.12);
+  --mode-send: #c2410c; /* burnt orange — white text hits AA (~5.2:1) */
+  --mode-send-hover: #9a3412;
+}
+.composer {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  padding: 14px 20px;
+  border-top: 2px solid var(--mode-accent);
+  background: var(--mode-tint);
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.composer textarea {
+  flex: 1;
+  resize: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 12px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.4;
+  max-height: 200px;
+}
+.composer textarea:focus {
+  outline: none;
+  border-color: var(--mode-accent);
+  box-shadow: 0 0 0 3px var(--mode-tint);
+}
+.composer .btn {
+  height: 42px;
+}
+.composer .btn.primary {
+  background: var(--mode-send);
+  border-color: var(--mode-send);
+}
+.composer .btn.primary:hover {
+  background: var(--mode-send-hover);
+  border-color: var(--mode-send-hover);
+}
+
+/* Chat: scope chips + @/# mentions */
+.chat-empty-tip {
+  font-size: 12px;
+  margin-top: 8px;
+}
+.chat-empty-tip b {
+  color: var(--accent);
+}
+.composer-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.composer-main textarea {
+  flex: none;
+  width: 100%;
+}
+.scope-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.scope-bar:empty {
+  display: none;
+}
+.scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 3px 4px 3px 10px;
+  font-size: 12px;
+}
+.scope-chip.repo {
+  border-color: var(--mode-accent);
+  color: var(--mode-accent);
+}
+.scope-chip button {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.scope-chip button:hover {
+  opacity: 1;
+}
+.mention-list {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 40;
+}
+.mention-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mention-item.active,
+.mention-item:hover {
+  background: var(--panel-2);
+}
+.mention-item .mi-label {
+  font-size: 13px;
+}
+.mention-item .sub {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mention-hint {
+  padding: 8px 9px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Scope tags shown inside a sent user message */
+.msg-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.mtag {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Business ⇄ Technical segmented toggle */
+.mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.mode-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 5px 12px;
+  font-size: 12.5px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mode-btn.active {
+  background: var(--mode-send, var(--accent));
+  color: #fff;
+}
+/* Once a conversation has started, the mode is fixed for it. */
+.mode-toggle.locked,
+.mode-toggle.locked .mode-btn {
+  cursor: not-allowed;
+}
+.mode-toggle.locked .mode-btn:not(.active) {
+  opacity: 0.4;
+}
+
+/* Response-language dropdown (chat header) */
+.lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  padding: 6px 26px 6px 10px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a97a5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.lang-select option {
+  background: var(--panel);
+  color: var(--text);
+}

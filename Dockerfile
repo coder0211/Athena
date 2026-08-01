@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # App code.
 COPY src ./src
+COPY dashboard ./dashboard
 COPY example ./example
 
 ENV PYTHONUNBUFFERED=1 \

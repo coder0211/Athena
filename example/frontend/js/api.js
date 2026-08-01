@@ -1,0 +1,17 @@
+// Thin fetch wrappers for the JSON API (same origin — the chat backend proxies
+// graph endpoints to the upstream service).
+export async function apiGet(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(r.statusText);
+  return r.json();
+}
+
+export async function apiPost(path, body) {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(r.statusText);
+  return r.json();
+}

@@ -1,0 +1,21 @@
+// Single shared, mutable app state. Modules import `S` and read/write `S.x`
+// (a plain object, so there are no live-binding reassignment issues across
+// ES modules). Persisted preferences (mode, language) are seeded here.
+const savedLang = localStorage.getItem("athena_lang");
+
+export const S = {
+  history: [], // [{role:'user'|'assistant', content}]
+  conversationId: null, // current conversation on the backend (null = not created yet)
+  busy: false,
+  mode: localStorage.getItem("athena_mode") || "business", // 'business' | 'technical'
+  lang: savedLang === "en" || savedLang === "vi" ? savedLang : "en",
+  REPOS: [], // repo names, for @ mentions
+  REPO_META: {}, // {name: {description, role, tags}} for @ mention hints
+  scopeRepos: [], // ["a", ...]
+  scopeSymbols: [], // [{name, id, repo}]
+  mention: null, // active mention being typed: {type, start, query}
+  mentionItems: [],
+  mentionActive: -1,
+  modeLocked: false,
+  lastRequest: null, // {question, scope} — replayed by regenerate
+};
