@@ -22,11 +22,12 @@ _SOURCES_ROOT = Path(
     os.environ.get("ATHENA_SOURCES", Path(__file__).resolve().parents[2] / ".sources")
 )
 
-# Tunable limits (env-overridable, read at call time — see config.int_env / example.env):
-#   ATHENA_MAX_CODE_LINES  max lines returned by a source read      (default 160)
-#   ATHENA_CODE_CONTEXT    extra lines shown around a symbol         (default 3)
-#   ATHENA_IMPACT_DEPTH    default hops for impact()                 (default 2)
-#   ATHENA_PATH_MAX_LEN    default max length for find_path()        (default 6)
+# Tunable limits (env-overridable, read at call time — see config.int_env / example.env).
+# Defaults below MUST stay in sync with example.env:
+#   ATHENA_MAX_CODE_LINES  max lines returned by a source read      (default 400)
+#   ATHENA_CODE_CONTEXT    extra lines shown around a symbol         (default 15)
+#   ATHENA_IMPACT_DEPTH    default hops for impact()                 (default 10)
+#   ATHENA_PATH_MAX_LEN    default max length for find_path()        (default 20)
 
 _DEPENDENCY_RELATIONS = {
     "CALLS",
@@ -431,7 +432,7 @@ class GraphQuery:
         if node_id not in self.g.nodes:
             return {"error": f"unknown node id: {node_id}"}
         if depth is None:
-            depth = config.int_env("ATHENA_IMPACT_DEPTH", 2)
+            depth = config.int_env("ATHENA_IMPACT_DEPTH", 10)
         seen = {node_id}
         frontier = {node_id}
         by_hop: dict[int, list[dict]] = {}
@@ -458,7 +459,7 @@ class GraphQuery:
         if source_id not in self.g.nodes or target_id not in self.g.nodes:
             return {"error": "unknown source or target id"}
         if max_len is None:
-            max_len = config.int_env("ATHENA_PATH_MAX_LEN", 6)
+            max_len = config.int_env("ATHENA_PATH_MAX_LEN", 20)
         ug = self.g.to_undirected(as_view=True)
         try:
             nodes = nx.shortest_path(ug, source_id, target_id)
@@ -510,7 +511,7 @@ class GraphQuery:
         if not f.exists():
             return {"error": f"source file not found: {repo}/{path}"}
         lines = f.read_text(errors="replace").splitlines()
-        max_lines = config.int_env("ATHENA_MAX_CODE_LINES", 160)
+        max_lines = config.int_env("ATHENA_MAX_CODE_LINES", 400)
         start = max(1, start)
         end = min(len(lines), end)
         if end - start + 1 > max_lines:
@@ -524,7 +525,7 @@ class GraphQuery:
         """Actual source code of a symbol (uses its stored file + line range)."""
         if node_id not in self.g.nodes:
             return {"error": f"unknown node id: {node_id}"}
-        ctx = config.int_env("ATHENA_CODE_CONTEXT", 3)
+        ctx = config.int_env("ATHENA_CODE_CONTEXT", 15)
         before = ctx if before is None else before
         after = ctx if after is None else after
         a = self.g.nodes[node_id]

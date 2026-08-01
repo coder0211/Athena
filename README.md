@@ -132,18 +132,23 @@ Stop and clean up with `docker compose down`.
 
 Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 
-| Variable                | Default                 | Purpose                                            |
-| ----------------------- | ----------------------- | -------------------------------------------------- |
-| `OPENAI_API_KEY`        | —                       | Enables natural-language Q&A. Unset → search only. |
-| `ATHENA_ASK_MODEL`      | `gpt-4.1-nano`          | Any OpenAI model with tool support.                |
-| `ATHENA_GRAPH`          | `.knowledge/graph.json` | Path to the built graph.                           |
-| `ATHENA_TEMPERATURE`    | `0.3`                   | Q&A sampling temperature (lower = more focused).   |
-| `ATHENA_MAX_TOKENS`     | `2048`                  | Max tokens for a Q&A answer.                       |
-| `ATHENA_MAX_STEPS`      | `16`                    | Max tool-calling rounds per question.              |
-| `ATHENA_MAX_CODE_LINES` | `5000`                  | Max lines returned by one source read.             |
-| `ATHENA_CODE_CONTEXT`   | `100`                   | Extra lines shown around a symbol.                 |
-| `ATHENA_IMPACT_DEPTH`   | `10`                    | Default hops for impact / blast-radius.            |
-| `ATHENA_PATH_MAX_LEN`   | `20`                    | Default max hops for shortest-path search.         |
+| Variable                     | Default                 | Purpose                                                                   |
+| ---------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`             | —                       | LLM API key. Enables Q&A; unset → structured search only.                 |
+| `ATHENA_API_BASE`            | —                       | OpenAI-compatible endpoint (Ollama, vLLM, OpenRouter, …). Unset → OpenAI. |
+| `ATHENA_API_KEY`             | —                       | Provider-agnostic key alias (wins over `OPENAI_API_KEY`).                 |
+| `ATHENA_ASK_MODEL`           | `gpt-4.1-nano`          | Any tool-capable model on your provider.                                  |
+| `ATHENA_GRAPH`               | `.knowledge/graph.json` | Path to the built graph.                                                  |
+| `ATHENA_TEMPERATURE`         | `0.3`                   | Q&A sampling temperature; `none` to omit (reasoning models).              |
+| `ATHENA_MAX_TOKENS`          | `2048`                  | Max tokens for a Q&A answer.                                              |
+| `ATHENA_TOKENS_PARAM`        | `max_tokens`            | Token-limit param name (`max_completion_tokens` for o-series/gpt-5).      |
+| `ATHENA_PARALLEL_TOOL_CALLS` | `true`                  | Batch independent tool calls; `false` if the model rejects it.            |
+| `ATHENA_MAX_STEPS`           | `16`                    | Max tool-calling rounds per question.                                     |
+| `ATHENA_TOOL_RESULT_CHARS`   | `12000`                 | Max chars of one tool result fed back (0 = uncapped).                     |
+| `ATHENA_MAX_CODE_LINES`      | `400`                   | Max lines returned by one source read.                                    |
+| `ATHENA_CODE_CONTEXT`        | `15`                    | Extra lines shown around a symbol.                                        |
+| `ATHENA_IMPACT_DEPTH`        | `10`                    | Default hops for impact / blast-radius.                                   |
+| `ATHENA_PATH_MAX_LEN`        | `20`                    | Default max hops for shortest-path search.                                |
 
 ## HTTP API
 

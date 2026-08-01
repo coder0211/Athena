@@ -52,3 +52,17 @@ def float_env(name: str, default: float) -> float:
         return float(os.environ[name])
     except (KeyError, ValueError, TypeError):
         return default
+
+
+def bool_env(name: str, default: bool) -> bool:
+    """Read a bool env var at call time. True: 1/true/yes/on; False: 0/false/no/off
+    (case-insensitive). Unset or unrecognised → `default`."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    val = raw.strip().lower()
+    if val in ("1", "true", "yes", "on"):
+        return True
+    if val in ("0", "false", "no", "off"):
+        return False
+    return default

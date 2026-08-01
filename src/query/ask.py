@@ -17,18 +17,69 @@ from query.engine import GraphQuery
 # Read at CALL time (not import), so values from .env — which config.load_env()
 # loads at app startup, after this module is imported — are actually picked up.
 def _model() -> str:
-    return os.environ.get("ATHENA_ASK_MODEL", "gpt-4o")
+    return os.environ.get("ATHENA_ASK_MODEL", "gpt-4.1-nano")
+
+
+def _client():
+    """OpenAI-compatible client. Works with any provider that speaks the OpenAI
+    Chat Completions API — OpenAI, a local server (Ollama, vLLM, LM Studio),
+    OpenRouter, Together, etc. — by pointing ATHENA_API_BASE at its endpoint.
+      ATHENA_API_BASE / OPENAI_BASE_URL  base URL (unset → OpenAI's default)
+      ATHENA_API_KEY   / OPENAI_API_KEY  API key   (a local endpoint may need none)
+    """
+    from openai import OpenAI  # imported lazily so the rest of the app runs without it
+
+    kwargs: dict = {}
+    base = os.environ.get("ATHENA_API_BASE") or os.environ.get("OPENAI_BASE_URL")
+    if base:
+        kwargs["base_url"] = base
+    key = os.environ.get("ATHENA_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    if key:
+        kwargs["api_key"] = key
+    return OpenAI(**kwargs)
 
 
 # Generation params (env-overridable). A lower temperature makes the tool-using
-# loop converge faster (fewer wandering round-trips); max_tokens caps the final
-# answer; parallel_tool_calls lets the model batch lookups into one turn.
+# loop converge faster (fewer wandering round-trips); the token cap bounds the
+# final answer; parallel_tool_calls lets the model batch lookups into one turn.
+# Each is conditionally included so reasoning models (o-series, gpt-5) that reject
+# `temperature`/`parallel_tool_calls` or rename `max_tokens` still work:
+#   ATHENA_TEMPERATURE=none        omit temperature (also: off/default/empty)
+#   ATHENA_TOKENS_PARAM=max_completion_tokens   rename the token-limit param
+#   ATHENA_PARALLEL_TOOL_CALLS=false            omit parallel_tool_calls
 def _gen_params() -> dict:
-    return {
-        "temperature": config.float_env("ATHENA_TEMPERATURE", 0.3),
-        "max_tokens": config.int_env("ATHENA_MAX_TOKENS", 2048),
-        "parallel_tool_calls": True,
-    }
+    params: dict = {}
+    temp = os.environ.get("ATHENA_TEMPERATURE")
+    if temp is None:
+        params["temperature"] = 0.3
+    elif temp.strip().lower() not in ("", "none", "off", "default"):
+        params["temperature"] = config.float_env("ATHENA_TEMPERATURE", 0.3)
+    token_param = os.environ.get("ATHENA_TOKENS_PARAM", "max_tokens")
+    params[token_param] = config.int_env("ATHENA_MAX_TOKENS", 2048)
+    if config.bool_env("ATHENA_PARALLEL_TOOL_CALLS", True):
+        params["parallel_tool_calls"] = True
+    return params
+
+
+def _error_hint(name: str, e: Exception) -> str:
+    """Turn an LLM API exception into a clean, user-facing message (no 500s)."""
+    if "RateLimit" in name:
+        return (
+            "Rate limit hit (tokens/min). Wait a few seconds and retry, or set a "
+            "lighter model via ATHENA_ASK_MODEL in .env."
+        )
+    return f"LLM API error: {name}: {e}"
+
+
+def _tool_content(output) -> str:
+    """Serialise a tool result for the model, capped so a large result (a wide
+    search, a deep impact scan) can't balloon the context on every later round.
+    ATHENA_TOOL_RESULT_CHARS bounds the per-result size (0 = uncapped)."""
+    s = json.dumps(output, default=str)
+    cap = config.int_env("ATHENA_TOOL_RESULT_CHARS", 12000)
+    if cap and len(s) > cap:
+        s = s[:cap] + f"… [truncated {len(s) - cap} chars — narrow the query if needed]"
+    return s
 
 
 # Shared investigation instructions (same for both audiences).
@@ -361,7 +412,14 @@ _TOOLS = [
 
 
 def is_available() -> bool:
-    return bool(os.environ.get("OPENAI_API_KEY"))
+    # Any of these enables Q&A: an OpenAI key, a provider-agnostic key, or a
+    # custom endpoint (a local server may need no key at all).
+    return bool(
+        os.environ.get("OPENAI_API_KEY")
+        or os.environ.get("ATHENA_API_KEY")
+        or os.environ.get("ATHENA_API_BASE")
+        or os.environ.get("OPENAI_BASE_URL")
+    )
 
 
 def _scope_note(scope: dict | None) -> str:
@@ -470,72 +528,23 @@ def answer(
 ) -> dict:
     """Answer a NL question with optional prior conversation `history`
     ([{role, content}]) and a mention `scope` ({repos, symbols}) that narrows
-    the search. Returns {available, answer, steps}."""
-    if not is_available():
-        return {
-            "available": False,
-            "reason": "OPENAI_API_KEY not set — natural-language Q&A is disabled.",
-        }
-
-    from openai import (
-        OpenAI,
-    )  # imported lazily so the API/server run without the SDK/key
-
-    client = OpenAI()
-    messages = _init_messages(question, engine, history, scope, mode, lang)
+    the search. Non-streaming: drains the shared agentic loop and returns
+    {available, answer, steps[, error]}."""
+    parts: list[str] = []
     steps: list[dict] = []
-    tool_cache: dict = {}
-    nudges = 0
-    max_steps = config.int_env("ATHENA_MAX_STEPS", 8)
-
-    for _ in range(max_steps):
-        try:
-            resp = client.chat.completions.create(
-                model=_model(),
-                messages=messages,
-                tools=_TOOLS,
-                tool_choice="auto",
-                **_gen_params(),
-            )
-        except Exception as e:  # rate limits / API errors → clean message, no 500
-            name = type(e).__name__
-            if "RateLimit" in name:
-                hint = (
-                    "OpenAI rate limit hit (tokens/min). Wait a few seconds and retry, "
-                    "or set a lighter model like gpt-4o-mini in .env (ATHENA_ASK_MODEL)."
-                )
-            else:
-                hint = f"OpenAI API error: {name}: {e}"
-            return {"available": True, "answer": hint, "error": name, "steps": steps}
-        msg = resp.choices[0].message
-
-        if not msg.tool_calls:
-            if _needs_read_nudge(steps, nudges):  # answered without reading — send back
-                nudges += 1
-                messages.append(msg)
-                messages.append({"role": "user", "content": _READ_NUDGE})
-                continue
-            return {"available": True, "answer": msg.content or "", "steps": steps}
-
-        messages.append(msg)  # assistant turn carrying the tool_calls
-        for call in msg.tool_calls:
-            args, output = _run_tool(
-                engine, call.function.name, call.function.arguments, tool_cache
-            )
-            steps.append({"tool": call.function.name, "input": args})
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": json.dumps(output, default=str),
-                }
-            )
-
-    return {
-        "available": True,
-        "answer": "(stopped: too many reasoning steps)",
-        "steps": steps,
-    }
+    error: str | None = None
+    for ev in _stream_answer(question, engine, history, scope, mode, lang):
+        if "unavailable" in ev:
+            return {"available": False, "reason": ev["unavailable"]}
+        if "delta" in ev:
+            parts.append(ev["delta"])
+        elif ev.get("done"):
+            steps = ev.get("steps", [])
+            error = ev.get("error")
+    out: dict = {"available": True, "answer": "".join(parts), "steps": steps}
+    if error:
+        out["error"] = error
+    return out
 
 
 def answer_stream(
@@ -546,31 +555,49 @@ def answer_stream(
     mode: str = "business",
     lang: str = "auto",
 ):
-    """Streaming variant of answer(). Yields event dicts as the answer is
-    produced; the agentic tool loop runs internally and only the final answer
-    text is streamed token by token. Events:
+    """Streaming variant of answer(): forwards the shared loop's events for the
+    SSE endpoint to relay frame by frame. Events:
       {'unavailable': reason} | {'delta': text} | {'tool': name} |
-      {'steps': [...], 'done': True} | {'error': msg}
+      {'steps': [...], 'done': True[, 'error': name]}
+    """
+    yield from _stream_answer(question, engine, history, scope, mode, lang)
+
+
+def _stream_answer(
+    question: str,
+    engine: GraphQuery,
+    history: list | None,
+    scope: dict | None,
+    mode: str,
+    lang: str,
+):
+    """The single agentic loop behind both answer() and answer_stream().
+
+    Runs plan → call tools → observe → refine for up to ATHENA_MAX_STEPS rounds,
+    then streams the final answer token by token. The answer text is buffered
+    until the model has actually read source (see _READ_TOOLS): while it hasn't,
+    an unread (guessed) answer is intercepted and sent back to read first
+    (_READ_NUDGE), so a guess never reaches the caller. Yields:
+      {'unavailable': reason} | {'delta': text} | {'tool': name} |
+      {'steps': [...], 'done': True[, 'error': name]}
     """
     if not is_available():
         yield {
-            "unavailable": "OPENAI_API_KEY not set — natural-language Q&A is disabled."
+            "unavailable": "No LLM key or endpoint configured — natural-language "
+            "Q&A is disabled. Set OPENAI_API_KEY (or ATHENA_API_BASE) in .env."
         }
         return
 
-    from openai import OpenAI  # lazy import (SDK/key optional for the rest of the app)
-
-    client = OpenAI()
+    client = _client()
     messages = _init_messages(question, engine, history, scope, mode, lang)
     steps: list[dict] = []
     tool_cache: dict = {}
     nudges = 0
-    max_steps = config.int_env("ATHENA_MAX_STEPS", 8)
+    max_steps = config.int_env("ATHENA_MAX_STEPS", 16)
 
     for _ in range(max_steps):
-        # Stream the answer live only once the model has read something. While it
-        # hasn't, buffer this round's text so an unread (guessed) answer can be
-        # intercepted and sent back to read source — before the user sees it.
+        # Stream live only once the model has read something. Until then, buffer
+        # this round's text so an unread (guessed) answer can be intercepted.
         live = any(s["tool"] in _READ_TOOLS for s in steps)
         try:
             stream = client.chat.completions.create(
@@ -583,15 +610,8 @@ def answer_stream(
             )
         except Exception as e:  # rate limits / API errors → clean message, no crash
             name = type(e).__name__
-            if "RateLimit" in name:
-                hint = (
-                    "OpenAI rate limit hit (tokens/min). Wait a few seconds and retry, "
-                    "or set a lighter model like gpt-4o-mini in .env (ATHENA_ASK_MODEL)."
-                )
-            else:
-                hint = f"OpenAI API error: {name}: {e}"
-            yield {"delta": hint}
-            yield {"steps": steps, "done": True}
+            yield {"delta": _error_hint(name, e)}
+            yield {"steps": steps, "done": True, "error": name}
             return
 
         content_parts: list[str] = []
@@ -619,7 +639,9 @@ def answer_stream(
             if not live and _needs_read_nudge(steps, nudges):
                 # Answered without reading — drop the buffered draft, send it back.
                 nudges += 1
-                messages.append({"role": "assistant", "content": "".join(content_parts) or None})
+                messages.append(
+                    {"role": "assistant", "content": "".join(content_parts) or None}
+                )
                 messages.append({"role": "user", "content": _READ_NUDGE})
                 continue
             if not live:  # buffered a good answer → flush it now
@@ -651,7 +673,7 @@ def answer_stream(
                 {
                     "role": "tool",
                     "tool_call_id": s["id"],
-                    "content": json.dumps(output, default=str),
+                    "content": _tool_content(output),
                 }
             )
 
