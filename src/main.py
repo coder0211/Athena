@@ -53,8 +53,9 @@ def build(
     persist: bool = True,
     store_backend: str = "networkx",
     cluster: bool = True,
+    with_docs: bool = True,
 ) -> KnowledgeGraph:
-    """L1–L4: extract every source repo, merge, cluster (+ store)."""
+    """L1–L4: extract every source repo, merge, cluster, ingest docs (+ store)."""
     repos = source_repos()
     if not repos:
         raise SystemExit(
@@ -65,6 +66,14 @@ def build(
         print(f"  - {repo.name}")
 
     kg = build_workspace_graph(repos, run_tools=run_tools, cluster=cluster)
+
+    # L2 documents — ingested after clustering so doc nodes don't skew the code
+    # communities; bridged to the code they mention.
+    if with_docs:
+        from graph.merge import build_docs
+
+        build_docs(kg, run_tools=run_tools)
+
     print("Unified knowledge graph:", kg.stats())
 
     if persist:
@@ -103,6 +112,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip the L4 graphify cluster bridge",
     )
+    b.add_argument(
+        "--no-docs",
+        action="store_true",
+        help="skip the L2 document ingestion (docx/pdf/csv/xls)",
+    )
 
     sub.add_parser("all", help="fetch then build (default)")
     return parser
@@ -119,6 +133,7 @@ def main(argv: list[str] | None = None) -> None:
             persist=not args.no_store,
             store_backend=args.store,
             cluster=not args.no_cluster,
+            with_docs=not args.no_docs,
         )
     else:  # "all" or no subcommand
         fetch()

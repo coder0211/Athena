@@ -14,6 +14,7 @@ from pathlib import Path
 import networkx as nx
 
 import config
+from graph import doc_store
 from graph.store_networkx import NetworkXStore
 from utils.workspace import load_workspace
 
@@ -123,6 +124,9 @@ class GraphQuery:
         self._repos_cache: list[str] | None = None
         self._comm_sizes: Counter | None = None
         self._name_index: list[tuple] | None = None
+        # Document retrieval (lazy — built on first search_docs call).
+        self._retriever = None
+        self._passages_by_id: dict | None = None
         self._overlay_workspace()
 
     # --- workspace overlay (repo metadata + inter-repo relations) ---------
@@ -543,3 +547,89 @@ class GraphQuery:
     def read_file(self, repo: str, path: str, start: int = 1, end: int = 300) -> dict:
         """Read an arbitrary slice of a source file under a repo."""
         return self._read_slice(repo, path, start, end)
+
+    # --- documents (docx/pdf/csv/xls knowledge source) -------------------
+    def _load_docs(self) -> None:
+        """Build the passage lookup + hybrid retriever once, on first use."""
+        if self._retriever is not None:
+            return
+        from query.retrieval import DocRetriever
+
+        passages = list(doc_store.read_passages())
+        self._passages_by_id = {p.id: p for p in passages}
+        self._retriever = DocRetriever(passages)
+
+    def has_docs(self) -> bool:
+        self._load_docs()
+        return self._retriever.count > 0
+
+    def search_docs(self, query: str, limit: int = 8) -> list[dict]:
+        """Hybrid (BM25 + embedding) search over ingested document passages."""
+        self._load_docs()
+        return self._retriever.search(query, limit=limit)
+
+    def list_documents(self) -> list[dict]:
+        """Every ingested Document with its type, size and section count."""
+        out = []
+        for nid, a in self.g.nodes(data=True):
+            if a.get("type") == "Document":
+                out.append(
+                    {
+                        "id": nid,
+                        "name": a.get("name"),
+                        "path": a.get("path"),
+                        "file_type": a.get("file_type"),
+                        "sections": a.get("sections"),
+                        "size_bytes": a.get("size_bytes"),
+                    }
+                )
+        return sorted(out, key=lambda d: (d.get("name") or "").lower())
+
+    def get_document(self, doc_id: str) -> dict:
+        """A document's metadata plus the ordered list of its sections."""
+        if doc_id not in self.g.nodes or self.g.nodes[doc_id].get("type") != "Document":
+            return {"error": f"unknown document id: {doc_id}"}
+        a = self.g.nodes[doc_id]
+        sections = []
+        for _, sid, ea in self.g.out_edges(doc_id, data=True):
+            if ea.get("type") != "CONTAINS":
+                continue
+            s = self.g.nodes[sid]
+            sections.append(
+                {
+                    "id": sid,
+                    "title": s.get("name"),
+                    "locator": s.get("locator"),
+                    "index": s.get("index", 0),
+                }
+            )
+        sections.sort(key=lambda s: s.get("index") or 0)
+        return {
+            "id": doc_id,
+            "name": a.get("name"),
+            "path": a.get("path"),
+            "file_type": a.get("file_type"),
+            "size_bytes": a.get("size_bytes"),
+            "sections": sections,
+        }
+
+    def read_passage(self, section_id: str) -> dict:
+        """Full text of a document section, plus the code symbols it mentions."""
+        self._load_docs()
+        p = (self._passages_by_id or {}).get(section_id)
+        if p is None:
+            return {"error": f"unknown document section id: {section_id}"}
+        mentions = []
+        if section_id in self.g.nodes:
+            for _, dst, ea in self.g.out_edges(section_id, data=True):
+                if ea.get("type") == "MENTIONS":
+                    mentions.append(self._view(dst))
+        return {
+            "id": p.id,
+            "document": p.doc_name,
+            "path": p.path,
+            "title": p.title,
+            "locator": p.locator,
+            "text": p.text,
+            "mentions_code": mentions,
+        }

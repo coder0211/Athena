@@ -21,15 +21,18 @@ import uuid
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import config
 import main as pipeline
+from extractors.documents import SUPPORTED_EXTENSIONS
+from graph import docs_reindex
 from query import ask as ask_module
 from query.engine import GraphQuery
+from utils.docs import document_roots, load_docs_config, save_docs_config
 from utils.repo.fetch import DEFAULT_SOURCES_PATH, fetch
 from utils.workspace import (
     RELATION_TYPES,
@@ -76,13 +79,16 @@ _jobs_lock = threading.Lock()
 
 
 def _run_job(job_id: str, kind: str, fn) -> None:
+    result = None
     try:
-        fn()
+        result = fn()
         status, error = "succeeded", None
     except Exception as e:  # noqa: BLE001 - report any failure to the client
         status, error = "failed", f"{type(e).__name__}: {e}"
     with _jobs_lock:
-        _jobs[job_id].update(status=status, error=error, finished=time.time())
+        _jobs[job_id].update(
+            status=status, error=error, finished=time.time(), result=result
+        )
 
 
 def _start_job(kind: str, fn) -> str:
@@ -256,6 +262,86 @@ def impact(node_id: str, depth: int | None = None) -> dict:
 @app.get("/api/communities")
 def communities(q: str | None = None, limit: int = 30) -> list[dict]:
     return get_engine().list_communities(query=q, limit=limit)
+
+
+# --- documents (docx/pdf/csv/xls knowledge source) -----------------------
+class DocsFolders(BaseModel):
+    folders: list[str] = []
+
+
+@app.get("/api/docs/folders")
+def get_doc_folders() -> dict:
+    """Configured document folders + the resolved roots actually being scanned."""
+    cfg = load_docs_config()
+    return {
+        "folders": cfg["folders"],
+        "roots": [str(r) for r in document_roots()],
+        "upload_dir": str(config.docs_root() / "uploads"),
+        "supported": list(SUPPORTED_EXTENSIONS),
+    }
+
+
+@app.put("/api/docs/folders")
+def put_doc_folders(body: DocsFolders) -> dict:
+    save_docs_config(body.folders)
+    return {"ok": True, "folders": len(body.folders)}
+
+
+@app.get("/api/docs")
+def list_docs() -> list[dict]:
+    if not _GRAPH_PATH.exists():
+        return []
+    return get_engine().list_documents()
+
+
+def _upload_dir() -> Path:
+    d = config.docs_root() / "uploads"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+@app.post("/api/docs/upload")
+async def upload_doc(file: UploadFile = File(...)) -> dict:
+    """Save an uploaded document under .docs/uploads/ (does not index it yet —
+    the client should trigger /api/docs/reindex afterwards)."""
+    name = Path(file.filename or "").name
+    if not name:
+        raise HTTPException(400, "missing filename")
+    if Path(name).suffix.lower() not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            400, f"unsupported type; allowed: {', '.join(SUPPORTED_EXTENSIONS)}"
+        )
+    dest = _upload_dir() / name
+    data = await file.read()
+    dest.write_bytes(data)
+    return {"ok": True, "name": name, "size": len(data)}
+
+
+@app.delete("/api/docs/upload/{name}")
+def delete_upload(name: str) -> dict:
+    """Delete a previously uploaded file (reindex afterwards to drop it)."""
+    safe = Path(name).name
+    target = _upload_dir() / safe
+    if not target.exists():
+        raise HTTPException(404, "no such uploaded file")
+    target.unlink()
+    return {"ok": True, "name": safe}
+
+
+@app.post("/api/docs/reindex")
+def reindex_docs() -> dict:
+    if not _GRAPH_PATH.exists():
+        raise HTTPException(404, "Build the graph first, then reindex documents.")
+    return {
+        "job_id": _start_job(
+            "docs-reindex", lambda: docs_reindex.reindex_documents(_GRAPH_PATH)
+        )
+    }
+
+
+@app.get("/api/docs/search")
+def docs_search(q: str, limit: int = 8) -> list[dict]:
+    return get_engine().search_docs(q, limit=limit)
 
 
 # --- natural-language Q&A -------------------------------------------------

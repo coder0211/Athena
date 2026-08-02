@@ -38,6 +38,32 @@ def graph_path() -> Path:
     return PROJECT_ROOT / ".knowledge" / "graph.json"
 
 
+def _resolve(raw: str | None, default: Path) -> Path:
+    """Resolve an env-configured path, allowing it to be relative to the project."""
+    if not raw:
+        return default
+    p = Path(raw)
+    return p if p.is_absolute() else PROJECT_ROOT / p
+
+
+def docs_config_path() -> Path:
+    """docs.yaml — the list of folders to scan for documents (ATHENA_DOCS_CONFIG)."""
+    return _resolve(os.environ.get("ATHENA_DOCS_CONFIG"), PROJECT_ROOT / "docs.yaml")
+
+
+def docs_root() -> Path:
+    """Root under which dashboard uploads are stored + scanned (ATHENA_DOCS)."""
+    return _resolve(os.environ.get("ATHENA_DOCS"), PROJECT_ROOT / ".docs")
+
+
+def docs_store_dir() -> Path:
+    """Where extracted passages + embeddings live, beside the graph so a rebuild
+    replaces both together (ATHENA_DOCS_STORE)."""
+    return _resolve(
+        os.environ.get("ATHENA_DOCS_STORE"), PROJECT_ROOT / ".knowledge" / "docs"
+    )
+
+
 def int_env(name: str, default: int) -> int:
     """Read an int env var at call time, falling back to `default` if unset/invalid."""
     try:

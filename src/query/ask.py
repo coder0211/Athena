@@ -92,6 +92,11 @@ _INVESTIGATE = (
     "1. search_symbols to find the relevant parts. Try SEVERAL terms and synonyms — "
     "for payment try Payment, Checkout, Order, Transaction, Pay, Billing; for booking "
     "try Book, Order, Reserve, Ticket. Use list_communities to find a feature area.\n"
+    "1b. ALSO consult the DOCUMENTS with search_docs whenever the question touches "
+    "requirements, business rules, policies, pricing, limits, or 'what is it supposed "
+    "to do' — the answer may be written in a spec/PDF/spreadsheet, not the code. Then "
+    "read_passage the best hits to quote them exactly, and follow their mentioned code "
+    "to confirm the docs match the implementation (flag any mismatch).\n"
     "2. To explain a flow or behaviour you MUST read_source / read_file the key symbols "
     "and follow callers/callees — DO NOT describe a flow from symbol names alone; names "
     "mislead. Searching only tells you where to look; the answer comes from reading.\n"
@@ -400,6 +405,42 @@ _TOOL_SPECS = [
             "required": ["repo", "path"],
         },
     ),
+    (
+        "search_docs",
+        "Hybrid (keyword + semantic) search over ingested DOCUMENTS (product specs, "
+        "PDFs, spec sheets, spreadsheets — docx/pdf/csv/xls/md). Use this for "
+        "requirements, business rules, policies, pricing, and anything documented in "
+        "prose/tables rather than code. Returns ranked passages with a snippet and a "
+        "section id to read in full.",
+        {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "limit": {"type": "integer"},
+            },
+            "required": ["query"],
+        },
+    ),
+    (
+        "read_passage",
+        "Read the FULL text of a document section (by the id from search_docs), plus "
+        "the code symbols it mentions. Use this to quote a spec/rule accurately and to "
+        "jump from a document into the code that implements it.",
+        {
+            "type": "object",
+            "properties": {"section_id": {"type": "string"}},
+            "required": ["section_id"],
+        },
+    ),
+    (
+        "get_document",
+        "Metadata + the ordered section list of one document (by document id).",
+        {
+            "type": "object",
+            "properties": {"doc_id": {"type": "string"}},
+            "required": ["doc_id"],
+        },
+    ),
 ]
 
 _TOOLS = [
@@ -492,6 +533,7 @@ def _run_tool(engine: GraphQuery, name: str, arguments: str, cache: dict) -> tup
 _READ_TOOLS = {
     "read_source",
     "read_file",
+    "read_passage",
     "get_symbol",
     "callers",
     "callees",

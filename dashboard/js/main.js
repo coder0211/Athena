@@ -4,6 +4,7 @@ import { $ } from "./dom.js";
 import { refreshStatus } from "./stats.js";
 import { loadRepos } from "./repos.js";
 import { loadWorkspace } from "./workspace.js";
+import { loadDocs } from "./docs.js";
 import "./jobs.js"; // imported for its button wiring (Fetch / Build)
 
 // --- tabs ---
@@ -26,3 +27,4 @@ if (openChat) openChat.href = `${location.protocol}//${location.hostname}:${chat
 refreshStatus();
 loadRepos();
 loadWorkspace();
+loadDocs();

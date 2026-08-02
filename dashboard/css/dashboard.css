@@ -557,3 +557,80 @@ main {
     padding-top: 16px;
   }
 }
+
+/* --- Documents tab --- */
+.doc-folder {
+  flex: 1;
+  min-width: 0;
+}
+.linklike {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+.dropzone {
+  margin: 6px 0 4px;
+  padding: 22px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  background: var(--panel);
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone.dragover {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.dropzone .msg {
+  margin-top: 8px;
+}
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.doc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.doc-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.doc-name {
+  font-weight: 600;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.doc-tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.doc-sub {
+  font-size: 12px;
+  color: var(--muted);
+}

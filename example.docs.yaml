@@ -1,0 +1,6 @@
+# Copy to docs.yaml (or manage it from the dashboard's Documents tab).
+# Folders here are scanned recursively for docx / pdf / csv / xls(x) / md / txt.
+# Uploaded files (.docs/uploads/) are always scanned too — no need to list them.
+folders:
+  - ./product-specs
+  - /Users/me/Drive/specs

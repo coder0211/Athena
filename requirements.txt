@@ -6,5 +6,12 @@ mcp
 fastapi
 uvicorn
 openai
+python-multipart  # multipart form parsing for document upload endpoint
+# --- document knowledge source (docx/pdf/csv/xls ingestion) ---
+pypdf         # PDF text extraction (pure Python)
+python-docx   # .docx paragraphs/tables (pure Python + lxml)
+openpyxl      # .xlsx sheets (pure Python)
+xlrd          # legacy .xls sheets (pure Python)
+rank-bm25     # keyword/BM25 half of hybrid document retrieval
 # codegraph CLI is installed separately via npm: npm i -g @colbymchenry/codegraph
 # kuzu  # optional Kuzu store backend; needs cmake + a Python with prebuilt wheels

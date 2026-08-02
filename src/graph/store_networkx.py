@@ -27,8 +27,9 @@ class NetworkXStore:
         self.g: nx.MultiDiGraph = nx.MultiDiGraph()
 
     # --- write -----------------------------------------------------------
-    def load(self, graph: KnowledgeGraph) -> None:
-        """Ingest the in-memory graph and persist to disk."""
+    def add(self, graph: KnowledgeGraph) -> None:
+        """Add a graph's nodes/edges into self.g (no persistence). Used both by
+        load() and by incremental updates (e.g. doc reindex) that save later."""
         for node in graph.nodes.values():
             self.g.add_node(
                 node.id,
@@ -51,6 +52,10 @@ class NetworkXStore:
                 provenance=edge.provenance.value,
                 **edge.properties,
             )
+
+    def load(self, graph: KnowledgeGraph) -> None:
+        """Ingest the in-memory graph and persist to disk."""
+        self.add(graph)
         self.save()
 
     def save(self) -> None:

@@ -222,6 +222,10 @@ sources.yaml
 .sources
 .knowledge
 
+# Documents knowledge source: local folder config + uploaded files (runtime data)
+docs.yaml
+.docs
+
 # Code-graph tool artifacts (also created inside cloned repos)
 .codegraph/
 graphify-out/

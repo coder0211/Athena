@@ -23,6 +23,7 @@ class Source(str, Enum):
     CODEGRAPH = "codegraph"  # precise AST structure (L1)
     GRAPHIFY = "graphify"    # concepts / semantic docs (L2/L4)
     BRIDGE = "bridge"        # synthesised while merging (code <-> concept)
+    DOCS = "docs"            # ingested documents (docx/pdf/csv/xls...) (L2)
 
 
 class NodeType(str, Enum):
@@ -41,6 +42,8 @@ class NodeType(str, Enum):
     CONCEPT = "Concept"        # graphify semantic concept
     COMMUNITY = "Community"    # graphify Leiden cluster
     FEATURE = "Feature"        # L4 cross-repo domain/feature
+    DOCUMENT = "Document"      # an ingested file (docx/pdf/csv/xls/md/txt)
+    DOC_SECTION = "DocSection"  # a retrievable chunk of a Document (page/heading/sheet)
 
 
 class EdgeType(str, Enum):
@@ -55,6 +58,7 @@ class EdgeType(str, Enum):
     MEMBER_OF = "MEMBER_OF"        # method -> class
     RELATES_TO = "RELATES_TO"      # concept <-> concept
     REALIZES = "REALIZES"          # code symbol -> concept/feature (bridge, L3)
+    MENTIONS = "MENTIONS"          # doc section -> code symbol/concept (bridge)
 
 
 class Provenance(str, Enum):
