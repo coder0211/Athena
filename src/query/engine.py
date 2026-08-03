@@ -152,6 +152,16 @@ class GraphQuery:
                 description=m.get("description") or "",
                 tags=m.get("tags", []),
             )
+        # Overlay curated metadata onto indexed Document nodes (so a doc's
+        # human description/tags travel with it into search + Q&A).
+        for doc_id, dm in self.workspace.get("docs", {}).items():
+            if doc_id not in self.g.nodes:
+                continue
+            node = self.g.nodes[doc_id]
+            if dm.get("description"):
+                node["description"] = dm["description"]
+            if dm.get("tags"):
+                node["tags"] = dm["tags"]
         for rel in self.workspace.get("relations", []):
             src, dst = rel.get("source"), rel.get("target")
             if not src or not dst:
@@ -266,17 +276,31 @@ class GraphQuery:
             )
         return out
 
+    def _node_label(self, ref: str) -> str:
+        """Human name for a workspace relation endpoint (repo name or document
+        name); falls back to the bare id if the node isn't in the graph."""
+        nid = _ws_node_id(ref)
+        if nid in self.g.nodes:
+            return self.g.nodes[nid].get("name") or ref
+        return ref[len("repo:"):] if ref.startswith("repo:") else ref
+
     def repo_relations(self) -> list[dict]:
-        """Declared typed relations between repos."""
-        return [
-            {
-                "source": r.get("source"),
-                "type": r.get("type"),
-                "target": r.get("target"),
-                "description": r.get("description") or "",
-            }
-            for r in self.workspace.get("relations", [])
-        ]
+        """Declared typed relations between repositories and documents, with the
+        endpoint kind so the reader knows what's being connected."""
+        out = []
+        for r in self.workspace.get("relations", []):
+            src, dst = r.get("source", ""), r.get("target", "")
+            out.append(
+                {
+                    "source": self._node_label(src),
+                    "source_kind": "document" if _ws_node_id(src).startswith("doc:") else "repo",
+                    "type": r.get("type"),
+                    "target": self._node_label(dst),
+                    "target_kind": "document" if _ws_node_id(dst).startswith("doc:") else "repo",
+                    "description": r.get("description") or "",
+                }
+            )
+        return out
 
     def overview(self) -> dict:
         types = Counter(a.get("type") for _, a in self.g.nodes(data=True))
@@ -636,7 +660,7 @@ class GraphQuery:
             for _, dst, ea in self.g.out_edges(section_id, data=True):
                 if ea.get("type") == "MENTIONS":
                     mentions.append(self._view(dst))
-        return {
+        out = {
             "id": p.id,
             "document": p.doc_name,
             "path": p.path,
@@ -645,3 +669,11 @@ class GraphQuery:
             "text": p.text,
             "mentions_code": mentions,
         }
+        # Curated workspace note on the parent document, if any (so the agent
+        # reads the human context alongside the passage).
+        da = self.g.nodes[p.doc_id] if p.doc_id in self.g.nodes else {}
+        if da.get("description"):
+            out["document_note"] = da["description"]
+        if da.get("tags"):
+            out["document_tags"] = da["tags"]
+        return out

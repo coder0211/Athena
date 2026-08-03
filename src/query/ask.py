@@ -386,7 +386,7 @@ _TOOL_SPECS = [
     ),
     (
         "repo_relations",
-        "List declared typed relations between repositories (e.g. calls_api_of, backend_of).",
+        "List declared typed relations between repositories AND documents (e.g. calls_api_of, backend_of, depends_on). Each endpoint has a name and kind (repo/document).",
         {"type": "object", "properties": {}},
     ),
     (
