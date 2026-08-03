@@ -28,12 +28,29 @@ export async function send(text) {
   if (!q || S.busy) return;
   hideEmpty();
   lockMode(); // this turn fixes the mode for the rest of the conversation
+  // Expand each tagged folder into the documents under it (by path prefix) and
+  // merge with explicitly tagged docs, de-duped by id — the backend scope only
+  // speaks documents, so a folder is just a convenient way to select a subtree.
+  const folderDocs = S.DOCS.filter((d) =>
+    S.scopeFolders.some((f) => (d.path || "").startsWith(f.path + "/")),
+  ).map((d) => ({ id: d.id, name: d.name }));
+  const seen = new Set();
+  const docs = [...S.scopeDocs, ...folderDocs].filter((d) =>
+    seen.has(d.id) ? false : seen.add(d.id),
+  );
   const scope = {
     repos: S.scopeRepos.slice(),
     symbols: S.scopeSymbols.slice(),
-    docs: S.scopeDocs.slice(),
+    docs,
   };
-  addUser(q, scope);
+  // The bubble shows the tags the user actually picked (folders stay collapsed).
+  const displayScope = {
+    repos: scope.repos,
+    symbols: scope.symbols,
+    docs: S.scopeDocs.slice(),
+    folders: S.scopeFolders.slice(),
+  };
+  addUser(q, displayScope);
   S.history.push({ role: "user", content: q });
   $("input").value = "";
   autoGrow();

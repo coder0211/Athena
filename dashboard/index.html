@@ -53,22 +53,22 @@
           Passages become searchable in chat and are linked to the code they mention.
         </p>
 
-        <div class="ws-section-title">Folders <span class="ws-sub">scanned recursively for documents</span></div>
-        <div class="repo-head">
-          <span class="col-url">Folder path (absolute or relative to project)</span>
-          <span class="col-del"></span>
+        <div class="ws-section-title">Upload <span class="ws-sub">builds a folder tree under .docs/uploads/</span></div>
+        <label class="doc-dest-label" for="doc-target-folder">Save into folder</label>
+        <div class="doc-dest">
+          <span class="doc-dest-prefix">uploads /</span>
+          <input id="doc-target-folder" class="doc-target" type="text" list="doc-folder-list"
+                 placeholder="leave empty for the root — or pick / type a subfolder" />
+          <datalist id="doc-folder-list"></datalist>
         </div>
-        <div id="doc-folder-rows"></div>
-        <div class="row-actions">
-          <button id="add-doc-folder" class="btn" type="button">+ Add folder</button>
-          <button id="save-doc-folders" class="btn primary" type="button">Save folders</button>
-          <span id="doc-folders-msg" class="msg"></span>
-        </div>
-
-        <div class="ws-section-title">Upload <span class="ws-sub">stored under .docs/uploads/</span></div>
+        <div id="doc-dest-hint" class="doc-dest-hint"></div>
         <div id="doc-dropzone" class="dropzone">
           <input id="doc-file-input" type="file" multiple hidden />
-          <span>Drag &amp; drop files here, or <button id="doc-browse" class="linklike" type="button">browse</button></span>
+          <input id="doc-folder-input" type="file" multiple hidden webkitdirectory />
+          <span id="doc-dropzone-ico" class="dropzone-ico" aria-hidden="true"></span>
+          <span>Drag &amp; drop files or a folder here, or
+            <button id="doc-browse" class="linklike" type="button">browse files</button> ·
+            <button id="doc-browse-folder" class="linklike" type="button">browse folder</button></span>
           <div id="doc-upload-msg" class="msg"></div>
         </div>
 
@@ -76,7 +76,14 @@
           Indexed documents <span class="ws-sub" id="doc-count"></span>
           <button id="doc-reindex" class="btn small primary" type="button">Reindex documents</button>
         </div>
+        <p class="ws-sub doc-tree-hint">Drag a file or folder onto another folder to move it · hover a row to rename or delete it — every change re-indexes automatically.</p>
         <div id="doc-reindex-status"></div>
+        <div id="doc-tree-toolbar" class="doc-tree-toolbar" style="display:none">
+          <input id="doc-filter" class="doc-filter" type="search" placeholder="Filter documents…" aria-label="Filter documents" />
+          <button id="doc-new-folder" class="icon-btn" type="button" title="New empty folder" aria-label="New empty folder"></button>
+          <button id="doc-expand-all" class="icon-btn" type="button" title="Expand all folders" aria-label="Expand all folders"></button>
+          <button id="doc-collapse-all" class="icon-btn" type="button" title="Collapse all folders" aria-label="Collapse all folders"></button>
+        </div>
         <div id="doc-list" class="doc-list"></div>
       </section>
 

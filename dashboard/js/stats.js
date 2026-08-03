@@ -8,7 +8,12 @@ export async function refreshStatus() {
     const bar = $("status-bar");
     if (s.built) {
       const g = s.graph;
-      bar.innerHTML = `✅ Graph: <b>${g.nodes.toLocaleString()}</b> nodes · <b>${g.edges.toLocaleString()}</b> edges · <b>${Object.keys(g.by_repo || {}).length}</b> repos`;
+      const docs = g.node_types?.Document || 0;
+      bar.innerHTML =
+        `✅ Graph: <b>${g.nodes.toLocaleString()}</b> nodes · ` +
+        `<b>${g.edges.toLocaleString()}</b> edges · ` +
+        `<b>${Object.keys(g.by_repo || {}).length}</b> repos · ` +
+        `<b>${docs.toLocaleString()}</b> docs`;
       renderStats(g, s.built_at);
     } else {
       bar.textContent = "⚠️ Graph not built yet — add repos, then Fetch & Build.";

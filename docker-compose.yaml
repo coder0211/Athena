@@ -17,6 +17,10 @@ services:
       - ./workspace.yaml:/app/workspace.yaml
       - ./.sources:/app/.sources
       - ./.knowledge:/app/.knowledge
+      # Uploaded documents — persisted to the host so they survive a container
+      # recreate (without this, uploads live only inside the container and a later
+      # reindex against the empty dir drops every document from the graph).
+      - ./.docs:/app/.docs
 
       # SSH keys so the container can clone private repos (git@…). Read-only.
       - ${HOME}/.ssh:/root/.ssh:ro

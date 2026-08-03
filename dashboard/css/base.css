@@ -74,6 +74,15 @@ code {
 .btn.primary:hover {
   background: var(--accent-2);
 }
+.btn.danger {
+  background: var(--err);
+  border-color: var(--err);
+  color: #fff;
+}
+.btn.danger:hover {
+  background: color-mix(in srgb, var(--err) 82%, #000);
+  border-color: var(--err);
+}
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;

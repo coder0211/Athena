@@ -10,12 +10,15 @@ can drop into your own system.
 ```
 repos (sources.yaml)
    └─ L0 fetch         git clone → .sources/
-      └─ L1 CodeGraph  Dart/多-lang AST → structure          (npm: codegraph)
+      └─ L1 CodeGraph  multi-language AST → structure         (npm: codegraph)
          └─ L4 Graphify cluster bridge → concept communities  (pip: graphifyy)
             └─ L3 store  unified graph → .knowledge/graph.json (networkx)
                └─ L5 GraphQuery  ── MCP server   (src/query/server.py)
                                  ├─ HTTP API      (src/api/app.py)
-                                 └─ NL Q&A        (src/query/ask.py, Claude)
+                                 └─ NL Q&A        (src/query/ask.py, OpenAI)
+
+documents (uploads / docs.yaml)
+   └─ L2 docs ingest   docx·pdf·csv·xls → passages, embedded, linked to code
 ```
 
 To embed Athena elsewhere, depend on **`GraphQuery`** (structured queries) and,
@@ -37,10 +40,10 @@ npm i -g @colbymchenry/codegraph          # L1 engine (needs Node 22.5+)
 python -m uvicorn api.app:app --app-dir src   # → http://127.0.0.1:8000
 ```
 
-The UI lets you: manage repos, run Fetch/Build, browse graph stats, search
-symbols, and ask natural-language questions. Set `OPENAI_API_KEY` to enable
-Q&A (model via `ATHENA_ASK_MODEL`, default `gpt-4o`); without it, the UI falls
-back to structured search.
+The UI lets you: manage repos, run Fetch/Build, upload and browse documents,
+browse graph stats, search symbols, and ask natural-language questions. Set
+`OPENAI_API_KEY` to enable Q&A (model via `ATHENA_ASK_MODEL`, default
+`gpt-4.1-nano`); without it, the UI falls back to structured search.
 
 ## Run with Docker
 
@@ -63,6 +66,8 @@ docker compose up --build   # → http://localhost:8000
 | GET     | `/api/search?q=&repo=&type=`            | symbol search                                |
 | GET     | `/api/symbol/{id}` · `/api/impact/{id}` | detail · blast radius                        |
 | GET     | `/api/communities?q=`                   | concept clusters                             |
+| GET     | `/api/docs` · `/api/docs/search?q=`     | list documents · search passages             |
+| POST    | `/api/docs/upload` · `/api/docs/reindex`| upload a file · reindex the docs layer       |
 | POST    | `/api/ask` `{question}`                 | natural-language answer (+ tool trace)       |
 
 ## MCP server

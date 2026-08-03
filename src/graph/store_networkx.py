@@ -17,7 +17,15 @@ from pathlib import Path
 
 import networkx as nx
 
-from graph.schema import Edge, EdgeType, KnowledgeGraph, Node, NodeType, Provenance, Source
+from graph.schema import (
+    Edge,
+    EdgeType,
+    KnowledgeGraph,
+    Node,
+    NodeType,
+    Provenance,
+    Source,
+)
 
 
 class NetworkXStore:
@@ -59,6 +67,9 @@ class NetworkXStore:
         self.save()
 
     def save(self) -> None:
+        # Parent may not exist yet on a fresh setup (e.g. a docs-only reindex
+        # before any code graph was built).
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         data = nx.node_link_data(self.g, edges="edges")
         self.db_path.write_text(json.dumps(data, indent=2, default=str))
 
@@ -74,7 +85,9 @@ class NetworkXStore:
             clean.add_node(nid, **{k: v for k, v in attrs.items() if v is not None})
         for src, dst, key, attrs in self.g.edges(keys=True, data=True):
             clean.add_edge(
-                src, dst, key=key,
+                src,
+                dst,
+                key=key,
                 **{k: v for k, v in attrs.items() if v is not None},
             )
         nx.write_graphml(clean, out)
@@ -105,7 +118,9 @@ class NetworkXStore:
             if needle in str(attrs.get("name", "")).lower()
         ]
 
-    def neighbors(self, node_id: str, *, edge_type: EdgeType | None = None) -> list[str]:
+    def neighbors(
+        self, node_id: str, *, edge_type: EdgeType | None = None
+    ) -> list[str]:
         out = []
         for _, dst, attrs in self.g.out_edges(node_id, data=True):
             if edge_type is None or attrs.get("type") == edge_type.value:

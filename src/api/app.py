@@ -21,7 +21,7 @@ import uuid
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -273,11 +273,16 @@ class DocsFolders(BaseModel):
 def get_doc_folders() -> dict:
     """Configured document folders + the resolved roots actually being scanned."""
     cfg = load_docs_config()
+    base = _upload_dir().resolve()
+    dirs = sorted(
+        str(p.relative_to(base)) for p in base.rglob("*") if p.is_dir()
+    )
     return {
         "folders": cfg["folders"],
         "roots": [str(r) for r in document_roots()],
         "upload_dir": str(config.docs_root() / "uploads"),
         "supported": list(SUPPORTED_EXTENSIONS),
+        "dirs": dirs,  # every upload subfolder, so empty ones still render in the tree
     }
 
 
@@ -294,16 +299,49 @@ def list_docs() -> list[dict]:
     return get_engine().list_documents()
 
 
+@app.get("/api/docs/detail")
+def doc_detail(id: str) -> dict:
+    """A document's metadata + ordered section list (for the preview panel)."""
+    return get_engine().get_document(id)
+
+
+@app.get("/api/docs/section")
+def doc_section(id: str) -> dict:
+    """Full text of one document section + the code symbols it mentions. `id`
+    is passed as a query param since section ids contain '#'."""
+    return get_engine().read_passage(id)
+
+
 def _upload_dir() -> Path:
     d = config.docs_root() / "uploads"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
+def _safe_under_uploads(rel: str, *, allow_empty: bool) -> Path:
+    """Resolve a user-supplied relative path under the uploads dir, rejecting
+    absolute paths and any '..' escape. `allow_empty` permits the uploads root
+    itself (for a target folder); otherwise a path is required (for a file)."""
+    base = _upload_dir().resolve()
+    parts = [p for p in Path(rel or "").parts if p not in ("", ".")]
+    if any(p == ".." for p in parts) or Path(rel or "").is_absolute():
+        raise HTTPException(400, "invalid path")
+    if not parts:
+        if allow_empty:
+            return base
+        raise HTTPException(400, "path required")
+    dest = (base / Path(*parts)).resolve()
+    if dest != base and base not in dest.parents:
+        raise HTTPException(400, "path escapes the uploads directory")
+    return dest
+
+
 @app.post("/api/docs/upload")
-async def upload_doc(file: UploadFile = File(...)) -> dict:
-    """Save an uploaded document under .docs/uploads/ (does not index it yet —
-    the client should trigger /api/docs/reindex afterwards)."""
+async def upload_doc(file: UploadFile = File(...), path: str = Form("")) -> dict:
+    """Save an uploaded document under .docs/uploads/[<path>/]<name>. `path` is an
+    optional relative subfolder (e.g. 'guides/onboarding') — a folder drop passes the
+    file's own relative directory here to preserve the tree. Does not index; the
+    client triggers /api/docs/reindex afterwards."""
     name = Path(file.filename or "").name
     if not name:
         raise HTTPException(400, "missing filename")
@@ -311,27 +349,96 @@ async def upload_doc(file: UploadFile = File(...)) -> dict:
         raise HTTPException(
             400, f"unsupported type; allowed: {', '.join(SUPPORTED_EXTENSIONS)}"
         )
-    dest = _upload_dir() / name
+    folder = _safe_under_uploads(path, allow_empty=True)
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / name
     data = await file.read()
     dest.write_bytes(data)
-    return {"ok": True, "name": name, "size": len(data)}
+    rel = dest.resolve().relative_to(_upload_dir().resolve())
+    return {"ok": True, "name": name, "path": str(rel), "size": len(data)}
 
 
-@app.delete("/api/docs/upload/{name}")
-def delete_upload(name: str) -> dict:
-    """Delete a previously uploaded file (reindex afterwards to drop it)."""
-    safe = Path(name).name
-    target = _upload_dir() / safe
-    if not target.exists():
+@app.delete("/api/docs/upload/{relpath:path}")
+def delete_upload(relpath: str) -> dict:
+    """Delete an uploaded file by its path relative to .docs/uploads/ (reindex
+    afterwards to drop it). Prunes parent folders left empty by the deletion."""
+    target = _safe_under_uploads(relpath, allow_empty=False)
+    if not target.exists() or not target.is_file():
         raise HTTPException(404, "no such uploaded file")
     target.unlink()
-    return {"ok": True, "name": safe}
+    _prune_empty(target.parent)
+    return {"ok": True, "path": str(target.relative_to(_upload_dir().resolve()))}
+
+
+def _prune_empty(start: Path) -> None:
+    """Remove now-empty folders from `start` up to (not including) the uploads root."""
+    base = _upload_dir().resolve()
+    d = start
+    while d != base and d.is_dir() and not any(d.iterdir()):
+        d.rmdir()
+        d = d.parent
+
+
+class MoveBody(BaseModel):
+    src: str  # path relative to .docs/uploads/
+    dst: str  # new path relative to .docs/uploads/
+
+
+@app.post("/api/docs/move")
+def move_upload(body: MoveBody) -> dict:
+    """Rename or move a file/folder within .docs/uploads/ (reindex to apply)."""
+    src = _safe_under_uploads(body.src, allow_empty=False)
+    dst = _safe_under_uploads(body.dst, allow_empty=False)
+    if not src.exists():
+        raise HTTPException(404, "source does not exist")
+    if dst.exists():
+        raise HTTPException(409, "destination already exists")
+    if src.is_file() and dst.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            400, f"unsupported type; allowed: {', '.join(SUPPORTED_EXTENSIONS)}"
+        )
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    src.rename(dst)
+    _prune_empty(src.parent)
+    base = _upload_dir().resolve()
+    return {"ok": True, "src": body.src, "dst": str(dst.relative_to(base))}
+
+
+class FolderBody(BaseModel):
+    path: str  # new folder path relative to .docs/uploads/
+
+
+@app.post("/api/docs/folder")
+def create_folder(body: FolderBody) -> dict:
+    """Create an empty folder under .docs/uploads/. No reindex needed — an empty
+    folder holds no documents; it just becomes a drag/upload target in the tree."""
+    target = _safe_under_uploads(body.path, allow_empty=False)
+    if target.exists():
+        raise HTTPException(409, "folder already exists")
+    target.mkdir(parents=True, exist_ok=False)
+    base = _upload_dir().resolve()
+    return {"ok": True, "path": str(target.relative_to(base))}
+
+
+@app.delete("/api/docs/folder/{relpath:path}")
+def delete_folder(relpath: str) -> dict:
+    """Delete a folder and everything under it, within .docs/uploads/ (reindex to
+    apply)."""
+    import shutil
+
+    target = _safe_under_uploads(relpath, allow_empty=False)
+    if not target.exists() or not target.is_dir():
+        raise HTTPException(404, "no such folder")
+    shutil.rmtree(target)
+    _prune_empty(target.parent)
+    return {"ok": True, "path": relpath}
 
 
 @app.post("/api/docs/reindex")
 def reindex_docs() -> dict:
-    if not _GRAPH_PATH.exists():
-        raise HTTPException(404, "Build the graph first, then reindex documents.")
+    # No graph yet is fine: reindex_documents opens an empty store and writes a
+    # docs-only graph. Docs become searchable standalone — only the doc↔code
+    # mention bridges are skipped until a code graph is built.
     return {
         "job_id": _start_job(
             "docs-reindex", lambda: docs_reindex.reindex_documents(_GRAPH_PATH)

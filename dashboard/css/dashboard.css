@@ -587,50 +587,630 @@ main {
   border-color: var(--accent);
   background: var(--panel-2);
 }
+.dropzone.dragover .dropzone-ico {
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+.dropzone-ico {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 8px;
+  transition: color 0.15s, transform 0.15s;
+}
+.dropzone-ico .ico {
+  width: 26px;
+  height: 26px;
+  margin: 0 auto;
+}
 .dropzone .msg {
   margin-top: 8px;
 }
+/* IDE-style explorer: one bordered surface holding a dense, indented tree. */
 .doc-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 4px;
+}
+.doc-list > .hint {
+  margin: 8px 10px;
 }
 .doc-row {
   display: flex;
   align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 5px;
+}
+.doc-row:hover {
+  background: var(--panel-2);
+}
+/* Inline SVG line icons — sized once, colour inherited from the row. */
+.ico {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: block;
+}
+.doc-file-ico {
+  flex: none;
+  display: inline-flex;
+  color: var(--muted);
+}
+/* Colour-code file icons by type for quick scanning (IDE-style). */
+.doc-file-ico.ico-doc {
+  color: var(--accent);
+}
+.doc-file-ico.ico-sheet {
+  color: var(--ok);
+}
+.doc-file-ico.ico-pdf {
+  color: var(--err);
+}
+
+/* Centered empty / placeholder state */
+.doc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 10px;
-  padding: 9px 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  padding: 34px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.doc-empty .ico {
+  width: 34px;
+  height: 34px;
+  opacity: 0.5;
+}
+.doc-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* On narrow screens, drop the per-file "N sections · size" so names keep room. */
+@media (max-width: 560px) {
+  .doc-meta .doc-sub {
+    display: none;
+  }
 }
 .doc-meta {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 .doc-name {
-  font-weight: 600;
-  font-size: 13.5px;
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
 }
 .doc-tag {
-  font-size: 11px;
+  flex: none;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--accent);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 0 5px;
 }
 .doc-sub {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* Loading skeleton for the document tree (shimmer placeholders). */
+.doc-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+}
+.doc-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+}
+.doc-skel-row.indent {
+  padding-left: 27px;
+}
+.skel-ico,
+.skel-bar {
+  background: linear-gradient(
+    90deg,
+    var(--panel-2) 25%,
+    var(--border) 37%,
+    var(--panel-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: skel-shimmer 1.4s ease infinite;
+  border-radius: 4px;
+}
+.skel-ico {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.skel-bar {
+  height: 10px;
+}
+@keyframes skel-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel-ico,
+  .skel-bar {
+    animation: none;
+  }
+}
+
+/* Themed text-input modal (replaces the native prompt) */
+.modal {
+  margin: auto;
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+.modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.modal-label {
   font-size: 12px;
   color: var(--muted);
+  margin-bottom: -6px;
+}
+.modal-input {
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+.modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.modal-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Large modal for document preview */
+.modal.modal-lg {
+  width: min(760px, calc(100vw - 32px));
+}
+.preview {
+  display: flex;
+  flex-direction: column;
+  max-height: min(78vh, 720px);
+}
+.preview-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px 8px;
+}
+.preview-head .doc-file-ico {
+  color: var(--accent);
+}
+.preview-head .modal-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-head .preview-close {
+  color: var(--muted);
+}
+.preview-head .preview-close:hover {
+  color: var(--text);
+}
+.preview-sub {
+  padding: 0 18px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.preview-body {
+  overflow-y: auto;
+  padding: 8px 14px 16px;
+}
+.preview-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.preview-section {
+  border-bottom: 1px solid var(--border);
+}
+.preview-section-sum {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.preview-section-sum::-webkit-details-marker {
+  display: none;
+}
+.preview-section[open] > .preview-section-sum .doc-twist {
+  transform: rotate(90deg);
+}
+.preview-section-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-section-body {
+  padding: 0 6px 10px 28px;
+}
+.preview-mentions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.preview-text {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Clickable document name (opens preview) */
+.doc-name-btn {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.doc-name-btn:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Upload progress bar */
+.upload-progress {
+  height: 6px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.upload-bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.15s ease;
+}
+.upload-progress-label {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Reindex per-file errors (collapsible) */
+.reindex-errors {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.reindex-errors > summary {
+  cursor: pointer;
+  color: var(--err);
+}
+.reindex-errors ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.reindex-errors li {
+  margin: 2px 0;
+  word-break: break-word;
+}
+
+/* Toast notifications */
+.toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  min-width: 200px;
+  max-width: 360px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.toast-ok {
+  border-left: 3px solid var(--ok);
+}
+.toast-err {
+  border-left: 3px solid var(--err);
+}
+.toast-info {
+  border-left: 3px solid var(--accent);
+}
+
+/* Tree toolbar: filter box + expand/collapse-all */
+.doc-tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+.doc-filter {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px 6px 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E")
+    no-repeat 9px center;
+  background-size: 14px;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+.doc-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+/* Toolbar buttons are navigational, not destructive — accent hover, not red. */
+.doc-tree-toolbar .icon-btn {
+  font-size: 15px;
+  padding: 4px 6px;
+}
+.doc-tree-toolbar .icon-btn:hover {
+  color: var(--accent);
+}
+
+/* Upload "Save into folder" field: a fixed "uploads /" prefix + editable subpath,
+   with a live destination hint below, so it's clear where files will land. */
+.doc-dest-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 2px 0 4px;
+}
+.doc-dest {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.doc-dest:focus-within {
+  border-color: var(--accent);
+}
+.doc-dest-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: var(--panel-2);
+  border-right: 1px solid var(--border);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.doc-target {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  color: inherit;
+  font: inherit;
+}
+.doc-target:focus {
+  outline: none;
+}
+.doc-dest-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 5px 0 2px;
+}
+
+/* Folder tree of indexed documents */
+.doc-folder-node {
+  border: none;
+  border-radius: 5px;
+  background: none;
+}
+.doc-folder-sum {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.doc-folder-sum:hover {
+  background: var(--panel-2);
+}
+/* Actions reveal on hover (IDE-style) — always shown where hover isn't available. */
+.doc-acts {
+  display: flex;
+  gap: 2px;
+  flex: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.doc-row:hover .doc-acts,
+.doc-folder-sum:hover .doc-acts,
+.doc-acts:focus-within {
+  opacity: 1;
+}
+@media (hover: none) {
+  .doc-acts {
+    opacity: 1;
+  }
+}
+/* Row action buttons: square hit area, subtle hover; rename→accent, delete→red. */
+.doc-acts .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 4px;
+  color: var(--muted);
+}
+.doc-acts .icon-btn:hover {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+.doc-acts .icon-btn:first-child:hover {
+  color: var(--accent);
+}
+.doc-acts .icon-btn:last-child:hover {
+  color: var(--err);
+}
+.doc-folder-sum::-webkit-details-marker {
+  display: none;
+}
+/* Twistie: a chevron SVG that rotates as the folder opens. */
+.doc-twist {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.12s;
+}
+.doc-twist .ico {
+  width: 14px;
+  height: 14px;
+}
+.doc-folder-node[open] > .doc-folder-sum .doc-twist {
+  transform: rotate(90deg);
+}
+/* Folder glyph swaps between closed/open with the node's state. */
+.doc-fico {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent);
+}
+.doc-fico .ico-folder-open {
+  display: none;
+}
+.doc-folder-node[open] > .doc-folder-sum .doc-fico .ico-folder {
+  display: none;
+}
+.doc-folder-node[open] > .doc-folder-sum .doc-fico .ico-folder-open {
+  display: block;
+}
+.doc-folder-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Indent guide: a vertical rule per nesting level, like a code editor's tree. */
+.doc-folder-children {
+  display: block;
+  margin-left: 13px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+/* drag & drop move: draggable rows show a grab cursor; a valid drop target lights up */
+.doc-folder-sum[draggable="true"],
+.doc-row[draggable="true"] {
+  cursor: grab;
+}
+.doc-folder-node.drop-hi > .doc-folder-sum {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.doc-ext {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
 }

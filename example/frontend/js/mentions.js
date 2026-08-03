@@ -38,6 +38,32 @@ function symbolItems(rows) {
   }));
 }
 
+// Nicer display name for a folder path prefix: drop the .docs/uploads/ noise.
+function folderLabel(path) {
+  if (path === ".docs/uploads") return "uploads";
+  return path.replace(/^\.docs\/uploads\//, "") || path;
+}
+
+// Distinct folder prefixes across all indexed documents (every ancestor dir),
+// so a whole subtree can be tagged. Pass-through prefixes — a container whose
+// docs all live in one deeper prefix (e.g. ".docs" → ".docs/uploads") — are
+// dropped so the list isn't cluttered with redundant roots. [{path, label, count}].
+function docFolders() {
+  const counts = new Map(); // raw prefix -> doc count under it
+  for (const d of S.DOCS) {
+    const parts = (d.path || "").split("/").filter(Boolean);
+    parts.pop(); // drop the filename
+    for (let i = 1; i <= parts.length; i++) {
+      const p = parts.slice(0, i).join("/");
+      counts.set(p, (counts.get(p) || 0) + 1);
+    }
+  }
+  const all = [...counts.entries()];
+  return all
+    .filter(([p, n]) => !all.some(([q, m]) => q !== p && q.startsWith(p + "/") && m === n))
+    .map(([path, n]) => ({ path, label: folderLabel(path), count: n }));
+}
+
 export async function updateMentions() {
   const mention = S.mention;
   if (!mention) return renderMentionList([]);
@@ -48,13 +74,21 @@ export async function updateMentions() {
       const sub = meta.description || meta.role || "";
       return { label: "@" + r, sub, kind: "repo", value: r };
     });
+    const folders = docFolders()
+      .filter((f) => fold(f.label).includes(q))
+      .map((f) => ({
+        label: "📁 " + f.label,
+        sub: `folder · ${f.count} doc(s)`,
+        kind: "folder",
+        value: { path: f.path, label: f.label },
+      }));
     const docs = S.DOCS.filter((d) => fold(d.name).includes(q)).map((d) => ({
       label: "@" + d.name,
       sub: [d.file_type, d.sections ? d.sections + " sections" : ""].filter(Boolean).join(" · "),
       kind: "doc",
       value: { id: d.id, name: d.name },
     }));
-    renderMentionList([...repos, ...docs]);
+    renderMentionList([...repos, ...folders, ...docs]);
   } else if (mention.query.length >= 1) {
     const query = mention.query;
     const cached = mentionCache.get(query);
@@ -116,6 +150,8 @@ export function pickMention(it) {
   input.setSelectionRange(S.mention.start, S.mention.start);
   if (it.kind === "repo") {
     if (!S.scopeRepos.includes(it.value)) S.scopeRepos.push(it.value);
+  } else if (it.kind === "folder") {
+    if (!S.scopeFolders.some((f) => f.path === it.value.path)) S.scopeFolders.push(it.value);
   } else if (it.kind === "doc") {
     if (!S.scopeDocs.some((d) => d.id === it.value.id)) S.scopeDocs.push(it.value);
   } else if (!S.scopeSymbols.some((s) => s.id === it.value.id)) {

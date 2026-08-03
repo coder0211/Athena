@@ -30,6 +30,14 @@ export function renderScope() {
       }),
     ),
   );
+  S.scopeFolders.forEach((f, i) =>
+    bar.append(
+      scopeChip("📁 " + f.label, "doc", () => {
+        S.scopeFolders.splice(i, 1);
+        renderScope();
+      }),
+    ),
+  );
 }
 
 function scopeChip(label, kind, onRemove) {

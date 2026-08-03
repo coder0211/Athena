@@ -9,10 +9,12 @@ questions about how the product works in plain language.**
 
 <p align="center"><img src="example/screenshot.png" alt="Athena chat UI" width="720" /></p>
 
-call/reference edges, concept communities), and serves it over one shared query
-engine: a **management dashboard**, a **chat app** with saved history, an
-**HTTP API**, and an **MCP server**. The natural-language Q&A reads the _real_
-source code and explains it — for business stakeholders and developers alike.
+Athena ingests your Git repositories — and, optionally, your product documents
+(specs, PDFs, spreadsheets) — extracts their structure (symbols, call/reference
+edges, concept communities), and serves it over one shared query engine: a
+**management dashboard**, a **chat app** with saved history, an **HTTP API**, and
+an **MCP server**. The natural-language Q&A reads the _real_ source code — and the
+docs you upload — and explains it, for business stakeholders and developers alike.
 
 ---
 
@@ -31,6 +33,9 @@ source code and explains it — for business stakeholders and developers alike.
   you revisit, rename, and delete past chats.
 - **Scoped questions** — type `@repo` to focus on one app or `#symbol` to focus
   on a specific feature/screen.
+- **Bring your own docs** — upload specs, PDFs, or spreadsheets from the dashboard.
+  They're chunked, embedded, made searchable in chat, and automatically linked to
+  the code symbols they mention — no full rebuild required.
 - **Structured access too** — the same graph powers a REST API and an MCP server
   for editors and agents.
 
@@ -46,8 +51,12 @@ repos (sources.yaml)
                                  ├─ HTTP API      (src/api/app.py, OpenAI Q&A)
                                  └─ NL Q&A        (src/query/ask.py)
 
+documents (uploads / docs.yaml)
+   └─ L2 docs ingest   docx·pdf·csv·xls → passages, embedded, linked to code
+                       (merged into the same graph; incremental reindex, no rebuild)
+
 web front-ends
-   :8000  dashboard  (dashboard/)          manage repos, build, browse the graph
+   :8000  dashboard  (dashboard/)          manage repos & docs, build, browse the graph
    :8100  chat app   (example/frontend +   ask questions, with saved history;
                       example/backend)     proxies Q&A to the API on :8000
 ```
@@ -138,6 +147,7 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | `ATHENA_API_BASE`            | —                       | OpenAI-compatible endpoint (Ollama, vLLM, OpenRouter, …). Unset → OpenAI. |
 | `ATHENA_API_KEY`             | —                       | Provider-agnostic key alias (wins over `OPENAI_API_KEY`).                 |
 | `ATHENA_ASK_MODEL`           | `gpt-4.1-nano`          | Any tool-capable model on your provider.                                  |
+| `ATHENA_EMBED_MODEL`         | `text-embedding-3-small`| Embedding model for document search (falls back to BM25 if no API key).   |
 | `ATHENA_GRAPH`               | `.knowledge/graph.json` | Path to the built graph.                                                  |
 | `ATHENA_TEMPERATURE`         | `0.3`                   | Q&A sampling temperature; `none` to omit (reasoning models).              |
 | `ATHENA_MAX_TOKENS`          | `2048`                  | Max tokens for a Q&A answer.                                              |
@@ -161,6 +171,9 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | GET     | `/api/search?q=&repo=&type=`            | symbol search                                |
 | GET     | `/api/symbol/{id}` · `/api/impact/{id}` | detail · blast radius                        |
 | GET     | `/api/communities?q=`                   | concept clusters                             |
+| GET     | `/api/docs`                             | list indexed documents                       |
+| POST    | `/api/docs/upload` · `/api/docs/reindex`| upload a file · reindex the docs layer       |
+| GET     | `/api/docs/search?q=`                   | search document passages                     |
 | POST    | `/api/ask` `{question}`                 | natural-language answer (+ tool trace)       |
 | POST    | `/api/ask/stream` `{question}`          | same, streamed as Server-Sent Events         |
 

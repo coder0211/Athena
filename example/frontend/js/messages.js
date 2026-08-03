@@ -50,10 +50,12 @@ export function addUser(text, scope) {
   const row = el("div", "chat-msg user");
   const bubble = el("div", "bubble");
   const docs = (scope && scope.docs) || [];
-  if (scope && (scope.repos.length || scope.symbols.length || docs.length)) {
+  const folders = (scope && scope.folders) || [];
+  if (scope && (scope.repos.length || scope.symbols.length || docs.length || folders.length)) {
     const tags = el("div", "msg-scope");
     scope.repos.forEach((r) => tags.append(el("span", "mtag", "@" + r)));
     scope.symbols.forEach((s) => tags.append(el("span", "mtag", "#" + s.name)));
+    folders.forEach((f) => tags.append(el("span", "mtag doc", "📁 " + f.label)));
     docs.forEach((d) => tags.append(el("span", "mtag doc", "📄 " + d.name)));
     bubble.append(tags);
   }

@@ -15,6 +15,7 @@ export const S = {
   scopeRepos: [], // ["a", ...]
   scopeSymbols: [], // [{name, id, repo}]
   scopeDocs: [], // [{id, name}] documents the search is narrowed to
+  scopeFolders: [], // [{path, label}] doc folders the search is narrowed to (whole subtree)
   mention: null, // active mention being typed: {type, start, query}
   mentionItems: [],
   mentionActive: -1,
