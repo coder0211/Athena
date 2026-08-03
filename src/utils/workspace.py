@@ -30,11 +30,15 @@ REPO_ROLES = ["mobile", "frontend", "backend", "service", "library", "infra", "o
 
 
 def load_workspace() -> dict:
-    """Return {'repos': {name: {description, role, tags}}, 'relations': [...]}"""
+    """Return {'repos': {name: {...}}, 'docs': {id: {...}}, 'relations': [...]}.
+
+    `repos`/`docs` entries may carry canvas positions (x, y) and curated metadata;
+    `relations` reference node ids ('repo:<name>' or 'doc:<id>')."""
     if not WORKSPACE_PATH.exists():
-        return {"repos": {}, "relations": []}
+        return {"repos": {}, "docs": {}, "relations": []}
     data = yaml.safe_load(WORKSPACE_PATH.read_text()) or {}
     data.setdefault("repos", {})
+    data.setdefault("docs", {})
     data.setdefault("relations", [])
     return data
 
@@ -42,6 +46,7 @@ def load_workspace() -> dict:
 def save_workspace(data: dict) -> None:
     clean = {
         "repos": data.get("repos", {}) or {},
+        "docs": data.get("docs", {}) or {},
         "relations": data.get("relations", []) or [],
     }
     WORKSPACE_PATH.write_text(

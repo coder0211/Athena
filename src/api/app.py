@@ -143,15 +143,22 @@ def put_sources(sources: Sources) -> dict:
 
 class WorkspaceIn(BaseModel):
     repos: dict = {}
+    docs: dict = {}
     relations: list = []
 
 
 @app.get("/api/workspace")
 def get_workspace() -> dict:
-    """Repo descriptions + typed relations, plus the vocab and known repo names."""
+    """Repo/doc metadata + typed relations, plus the vocab and available nodes
+    (known repo names and indexed documents) to place on the canvas."""
     ws = load_workspace()
+    docs_available: list[dict] = []
     if _GRAPH_PATH.exists():
         available = get_engine().repos()
+        docs_available = [
+            {"id": d["id"], "name": d.get("name"), "file_type": d.get("file_type")}
+            for d in get_engine().list_documents()
+        ]
     else:
         available = sorted(ws.get("repos", {}).keys())
     return {
@@ -159,13 +166,19 @@ def get_workspace() -> dict:
         "relation_types": RELATION_TYPES,
         "repo_roles": REPO_ROLES,
         "repos_available": available,
+        "docs_available": docs_available,
     }
 
 
 @app.put("/api/workspace")
 def put_workspace(body: WorkspaceIn) -> dict:
     save_workspace(body.model_dump())
-    return {"ok": True, "repos": len(body.repos), "relations": len(body.relations)}
+    return {
+        "ok": True,
+        "repos": len(body.repos),
+        "docs": len(body.docs),
+        "relations": len(body.relations),
+    }
 
 
 @app.get("/api/branches")

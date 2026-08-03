@@ -91,25 +91,41 @@
       <section id="workspace" class="panel">
         <h2>Workspace</h2>
         <p class="hint">
-          Describe each repository and how they relate (e.g. one is the backend of another). This powers cross-repo
-          answers in the Ask tab.
+          A map of your system: each repository or document is a node. Drag nodes to arrange them, drag from a node's
+          handle onto another to connect them, and click a node or link to add details. This powers cross-repo answers
+          in the Ask tab.
         </p>
 
-        <div class="ws-section-title">Repositories <span class="ws-sub">description · role · tags</span></div>
-        <div id="ws-repos" class="ws-repos"></div>
+        <div id="ws-stage" class="ws-stage">
+          <div class="ws-toolbar">
+            <div class="ws-add">
+              <button id="ws-add-btn" class="btn small" type="button">+ Add node</button>
+              <div id="ws-add-menu" class="ws-add-menu" hidden></div>
+            </div>
+            <button id="ws-fit" class="btn small" type="button" title="Auto-arrange nodes">Tidy up</button>
+            <button id="ws-full" class="btn small" type="button" title="Toggle full screen">Full screen</button>
+            <span class="ws-spacer"></span>
+            <span id="ws-msg" class="msg"></span>
+            <button id="ws-save" class="btn small primary" type="button">Save</button>
+          </div>
 
-        <div class="ws-section-title">
-          Relations <span class="ws-sub">how repos connect</span>
-          <button id="ws-add-rel" class="btn small" type="button">+ Add</button>
-        </div>
-        <div class="ws-rel-head">
-          <span>From</span><span>Relationship</span><span>To</span><span>Notes</span><span></span>
-        </div>
-        <div id="ws-relations"></div>
-
-        <div class="row-actions ws-save-bar">
-          <button id="ws-save" class="btn primary" type="button">Save workspace</button>
-          <span id="ws-msg" class="msg"></span>
+          <div id="ws-canvas-wrap" class="ws-canvas-wrap">
+            <div id="ws-canvas" class="ws-canvas">
+              <div id="ws-sizer" class="ws-sizer">
+                <div id="ws-content" class="ws-content">
+                  <svg id="ws-edges" class="ws-edges"></svg>
+                  <div id="ws-nodes" class="ws-nodes"></div>
+                </div>
+              </div>
+            </div>
+            <aside id="ws-panel" class="ws-panel" hidden></aside>
+            <div id="ws-empty-hint" class="ws-empty-hint" hidden></div>
+            <div class="ws-zoom">
+              <button id="ws-zoom-out" class="ws-zoom-btn" type="button" title="Zoom out">−</button>
+              <button id="ws-zoom-reset" class="ws-zoom-btn ws-zoom-level" type="button" title="Reset zoom">100%</button>
+              <button id="ws-zoom-in" class="ws-zoom-btn" type="button" title="Zoom in">+</button>
+            </div>
+          </div>
         </div>
       </section>
 

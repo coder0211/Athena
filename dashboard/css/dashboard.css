@@ -242,111 +242,394 @@ main {
   margin-left: auto;
 }
 
-.ws-repos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
+/* --- Workspace node canvas --- */
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
 }
-.ws-card {
+.ws-spacer {
+  flex: 1;
+}
+.ws-add {
+  position: relative;
+}
+.ws-add-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+.ws-add-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.ws-add-item:hover {
+  background: var(--panel-2);
+}
+.ws-add-item .ws-node-ico {
+  width: 15px;
+  height: 15px;
+}
+.ws-add-repo .ws-node-ico {
+  color: var(--accent);
+}
+.ws-add-doc .ws-node-ico {
+  color: var(--ok);
+}
+.ws-add-empty {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Full-screen stage */
+.ws-stage.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  background: var(--bg);
+}
+.ws-stage.fullscreen .ws-toolbar {
+  margin: 4px 0;
+}
+.ws-stage.fullscreen .ws-canvas-wrap {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+body.ws-fs-lock {
+  overflow: hidden;
+}
+
+.ws-canvas-wrap {
+  position: relative;
+  height: min(76vh, 660px);
+  min-height: 520px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--panel);
+}
+.ws-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+.ws-sizer {
+  position: relative;
+}
+.ws-content {
+  position: relative;
+  transform-origin: 0 0;
+}
+.ws-nodes {
+  position: absolute;
+  inset: 0;
+}
+.ws-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Zoom controls */
+.ws-zoom {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 15;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.ws-zoom-btn {
+  min-width: 28px;
+  height: 26px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+}
+.ws-zoom-btn:hover {
+  background: var(--panel-2);
+}
+.ws-zoom-level {
+  min-width: 48px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ws-edges marker path {
+  fill: var(--muted);
+}
+.ws-edge-line {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+}
+.ws-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.ws-edge.selected .ws-edge-line {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+}
+.ws-edge-temp {
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+.ws-edge-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 1px 7px;
+  font-size: 11px;
+  color: var(--muted);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
 }
-.ws-card-head {
+.ws-edge-label:hover {
+  color: var(--text);
+}
+.ws-edge-label.selected {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Node cards */
+.ws-node {
+  position: absolute;
+  width: 176px;
+  padding: 9px 11px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: grab;
+  user-select: none;
+}
+.ws-node:active {
+  cursor: grabbing;
+}
+.ws-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.ws-node-repo {
+  border-left: 3px solid var(--accent);
+}
+.ws-node-doc {
+  border-left: 3px solid var(--ok);
+}
+.ws-node-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 7px;
 }
-.ws-name {
+.ws-node-ico {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.ws-node-repo .ws-node-ico {
+  color: var(--accent);
+}
+.ws-node-doc .ws-node-ico {
+  color: var(--ok);
+}
+.ws-node-name {
   flex: 1;
+  min-width: 0;
   font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.ws-card textarea,
-.ws-card input,
-.ws-card select,
-.ws-rel select,
-.ws-rel input {
+.ws-node-role {
+  flex: none;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.ws-node-desc {
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ws-node-handle {
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  cursor: crosshair;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.ws-node:hover .ws-node-handle,
+.ws-node.selected .ws-node-handle {
+  opacity: 1;
+}
+
+/* Edit side panel */
+.ws-panel[hidden] {
+  display: none;
+}
+.ws-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  bottom: 10px;
+  width: 280px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  overflow-y: auto;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  color: var(--text);
-  font-size: 13px;
-  font-family: inherit;
+  border-radius: 10px;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.25);
 }
-/* Dropdowns: custom chevron + theme-matched, consistent with inputs */
-.ws-card select,
-.ws-rel select {
+.ws-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-panel-head .ws-node-ico {
+  color: var(--accent);
+}
+.ws-panel-head b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.ws-panel-close {
+  color: var(--muted);
+}
+.ws-panel-kind {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-top: -4px;
+}
+.ws-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ws-field textarea,
+.ws-field input,
+.ws-field select {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.ws-field select {
   appearance: none;
   -webkit-appearance: none;
-  padding-right: 28px;
+  padding-right: 26px;
   cursor: pointer;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a97a5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
   background-repeat: no-repeat;
-  background-position: right 9px center;
+  background-position: right 8px center;
 }
-.ws-card select option,
-.ws-rel select option {
-  background: var(--panel);
-  color: var(--text);
-}
-.ws-card textarea:focus,
-.ws-card input:focus,
-.ws-card select:focus,
-.ws-rel select:focus,
-.ws-rel input:focus {
+.ws-field textarea:focus,
+.ws-field input:focus,
+.ws-field select:focus {
   outline: none;
   border-color: var(--accent);
 }
-.ws-role {
-  width: 120px;
-  flex: none;
+.ws-field input:disabled {
+  color: var(--muted);
 }
-.ws-desc {
-  width: 100%;
-  resize: vertical;
+.ws-panel-actions {
+  margin-top: auto;
 }
-.ws-tags {
+.ws-panel-actions .btn {
   width: 100%;
-  margin-top: 6px;
 }
 
-/* Relations: grid so columns align across every row */
-.ws-rel-head,
-.ws-rel {
-  display: grid;
-  grid-template-columns: 1.1fr 1.2fr 1.1fr 2fr 28px;
-  gap: 8px;
-  align-items: center;
-}
-.ws-rel-head {
-  padding: 0 2px 6px;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.ws-rel {
-  margin-bottom: 8px;
-}
-.ws-rel select,
-.ws-rel input {
-  width: 100%;
-  min-width: 0;
-}
-.ws-empty {
+.ws-empty-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   color: var(--muted);
   font-size: 13px;
-  padding: 8px 2px;
-}
-.ws-save-bar {
-  margin-top: 18px;
+  text-align: center;
+  pointer-events: none;
 }
 
 /* Job status */
@@ -531,18 +814,12 @@ main {
   .bar-row {
     grid-template-columns: minmax(64px, 40%) 1fr auto;
   }
-  .ws-rel-head {
-    display: none;
+  .ws-canvas-wrap {
+    height: 66vh;
+    min-height: 420px;
   }
-  .ws-rel {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-  .ws-rel .icon-btn {
-    justify-self: end;
+  .ws-panel {
+    width: min(280px, calc(100% - 20px));
   }
 }
 
@@ -581,7 +858,9 @@ main {
   color: var(--muted);
   font-size: 13px;
   background: var(--panel);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .dropzone.dragover {
   border-color: var(--accent);
@@ -595,7 +874,9 @@ main {
   display: block;
   color: var(--muted);
   margin-bottom: 8px;
-  transition: color 0.15s, transform 0.15s;
+  transition:
+    color 0.15s,
+    transform 0.15s;
 }
 .dropzone-ico .ico {
   width: 26px;
@@ -725,12 +1006,7 @@ main {
 }
 .skel-ico,
 .skel-bar {
-  background: linear-gradient(
-    90deg,
-    var(--panel-2) 25%,
-    var(--border) 37%,
-    var(--panel-2) 63%
-  );
+  background: linear-gradient(90deg, var(--panel-2) 25%, var(--border) 37%, var(--panel-2) 63%);
   background-size: 400% 100%;
   animation: skel-shimmer 1.4s ease infinite;
   border-radius: 4px;
@@ -994,7 +1270,9 @@ main {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 .toast.show {
   opacity: 1;

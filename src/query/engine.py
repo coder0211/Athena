@@ -53,6 +53,12 @@ _TYPE_RANK = {
 }
 
 
+def _ws_node_id(ref: str) -> str:
+    """Resolve a workspace relation endpoint to a graph node id. Already-prefixed
+    ids ('repo:web', 'doc:ab12') pass through; a bare name is treated as a repo."""
+    return ref if ":" in ref else f"repo:{ref}"
+
+
 def _initials(name: str) -> str:
     """Acronym of a symbol name from word starts — camelCase and separator
     boundaries. 'PaymentService' -> 'ps', 'get_user_by_id' -> 'gubi'. Lets a
@@ -150,9 +156,12 @@ class GraphQuery:
             src, dst = rel.get("source"), rel.get("target")
             if not src or not dst:
                 continue
+            # Relation endpoints are node ids: "repo:<name>" or "doc:<id>". Bare
+            # names (legacy / repo-only) are treated as repos. A "doc:<id>" that
+            # matches an indexed Document links curated metadata straight to it.
             self.g.add_edge(
-                f"repo:{src}",
-                f"repo:{dst}",
+                _ws_node_id(src),
+                _ws_node_id(dst),
                 key=rel.get("type", "related_to"),
                 type=(rel.get("type") or "related_to").upper(),
                 role="repo_relation",
