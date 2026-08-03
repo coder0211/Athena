@@ -24,7 +24,6 @@
       <button class="tab active" data-tab="repos">Repositories</button>
       <button class="tab" data-tab="documents">Documents</button>
       <button class="tab" data-tab="workspace">Workspace</button>
-      <button class="tab" data-tab="build">Fetch &amp; Build</button>
     </nav>
 
     <main>
@@ -33,16 +32,38 @@
         <h2>Source repositories</h2>
         <p class="hint">These are cloned into <code>.sources/</code> and indexed. One row per repo.</p>
         <div class="repo-head">
+          <span class="col-idx">#</span>
           <span class="col-url">Git URL</span>
           <span class="col-branch">Branch</span>
           <span class="col-del"></span>
         </div>
         <div id="repo-rows"></div>
+        <div id="repo-more" class="repo-more"></div>
         <div class="row-actions">
           <button id="add-repo" class="btn">+ Add repository</button>
           <button id="save-repos" class="btn primary">Save</button>
           <span id="repos-msg" class="msg"></span>
         </div>
+
+        <h2 class="panel-section">Pipeline</h2>
+        <p class="hint">Clone/update repos, then build the knowledge graph (structure + concept communities).</p>
+        <div class="steps">
+          <button id="run-fetch" class="step-card">
+            <span class="step-n">1</span>
+            <span class="step-body"
+              ><span class="step-t">Fetch repos</span
+              ><span class="step-d">git clone / update into .sources/</span></span
+            >
+          </button>
+          <button id="run-build" class="step-card primary">
+            <span class="step-n">2</span>
+            <span class="step-body"
+              ><span class="step-t">Build graph</span><span class="step-d">extract → merge → cluster</span></span
+            >
+          </button>
+        </div>
+        <div id="job-status" class="job-status"></div>
+        <div id="graph-stats"></div>
       </section>
 
       <!-- Documents -->
@@ -129,28 +150,6 @@
         </div>
       </section>
 
-      <!-- Fetch & Build -->
-      <section id="build" class="panel">
-        <h2>Pipeline</h2>
-        <p class="hint">Clone/update repos, then build the knowledge graph (structure + concept communities).</p>
-        <div class="steps">
-          <button id="run-fetch" class="step-card">
-            <span class="step-n">1</span>
-            <span class="step-body"
-              ><span class="step-t">Fetch repos</span
-              ><span class="step-d">git clone / update into .sources/</span></span
-            >
-          </button>
-          <button id="run-build" class="step-card primary">
-            <span class="step-n">2</span>
-            <span class="step-body"
-              ><span class="step-t">Build graph</span><span class="step-d">extract → merge → cluster</span></span
-            >
-          </button>
-        </div>
-        <div id="job-status" class="job-status"></div>
-        <div id="graph-stats"></div>
-      </section>
     </main>
 
     <script type="module" src="js/main.js"></script>

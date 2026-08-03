@@ -3,6 +3,9 @@ import { $, el, escapeHtml } from "./dom.js";
 import { api } from "./api.js";
 
 export async function refreshStatus() {
+  const wrap = $("graph-stats");
+  // Shimmer on the first load, while /api/status is in flight.
+  if (wrap && !wrap.children.length) renderStatsSkeleton();
   try {
     const s = await api.get("/api/status");
     const bar = $("status-bar");
@@ -16,11 +19,32 @@ export async function refreshStatus() {
         `<b>${docs.toLocaleString()}</b> docs`;
       renderStats(g, s.built_at);
     } else {
-      bar.textContent = "⚠️ Graph not built yet — add repos, then Fetch & Build.";
+      bar.textContent = "⚠️ Graph not built yet — add repos, then run the Pipeline.";
+      if (wrap) wrap.innerHTML = ""; // clear the shimmer
     }
   } catch (e) {
     $("status-bar").textContent = "API unreachable: " + e.message;
+    if (wrap) wrap.innerHTML = "";
   }
+}
+
+// Shimmer placeholder mirroring the overview (head + KPI tiles + two bar charts).
+function renderStatsSkeleton() {
+  const skel = (w, h, extra = "") =>
+    `<span class="skel-bar" style="display:block;width:${w};height:${h};${extra}"></span>`;
+  const tile = () =>
+    `<div class="metric">${skel("55%", "24px")}${skel("40%", "11px", "margin-top:9px")}</div>`;
+  const barRow = () =>
+    `<div class="bar-row">${skel("80%", "12px")}${skel("100%", "8px")}${skel("34px", "12px")}</div>`;
+  const viz = (rows) =>
+    `<div class="viz">${skel("130px", "11px", "margin-bottom:14px")}` +
+    Array.from({ length: rows }, barRow).join("") +
+    `</div>`;
+  $("graph-stats").innerHTML =
+    `<div class="overview-head">${skel("150px", "16px")}</div>` +
+    `<div class="metrics">${tile()}${tile()}${tile()}${tile()}</div>` +
+    viz(5) +
+    viz(4);
 }
 
 const fmtNum = (n) => Number(n).toLocaleString();

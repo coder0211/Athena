@@ -79,6 +79,7 @@ async function loadBranches(url, combo) {
 
 function repoRow(url = "", branch = "main") {
   const row = el("div", "repo-row");
+  const idx = el("span", "repo-index"); // 1-based position, filled by renumber()
   const u = el("input", "repo-url");
   u.value = url;
   u.placeholder = "git@… or https://….git";
@@ -94,35 +95,114 @@ function repoRow(url = "", branch = "main") {
   const del = el("button", "icon-btn", "✕");
   del.type = "button";
   del.title = "Remove";
-  del.onclick = () => row.remove();
+  del.onclick = () => {
+    row.remove();
+    renumber();
+  };
 
-  row.append(u, combo.wrap, refresh, del);
+  row.append(idx, u, combo.wrap, refresh, del);
   if (url) load(); // auto-load branches when the URL is already known
   return row;
+}
+
+// --- numbering + server-side pagination ----------------------------------
+const PAGE = 10;
+let total = 0; // total repositories on the server
+let serverLoaded = 0; // how many server repos have been fetched into the list
+
+function renumber() {
+  [...$("repo-rows").children].forEach((row, i) => {
+    const idx = row.querySelector(".repo-index");
+    if (idx) idx.textContent = i + 1;
+  });
+}
+
+function renderMore() {
+  const more = $("repo-more");
+  more.innerHTML = "";
+  const remaining = total - serverLoaded;
+  if (remaining > 0) {
+    const btn = el("button", "btn small", `Show more (${remaining} more)`);
+    btn.type = "button";
+    btn.onclick = loadMore;
+    more.append(btn);
+  }
+}
+
+// Fetch the next page from the server and append it.
+async function loadMore() {
+  const more = $("repo-more");
+  more.innerHTML = `<span class="msg">Loading…</span>`;
+  try {
+    const resp = await api.get(`/api/sources?offset=${serverLoaded}&limit=${PAGE}`);
+    (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch)));
+    serverLoaded += (resp.repositories || []).length;
+    total = resp.total ?? total;
+    renumber();
+    renderMore();
+  } catch (e) {
+    more.innerHTML = `<span class="msg err">${escapeHtml(e.message)}</span>`;
+  }
 }
 
 export async function loadRepos() {
   const rows = $("repo-rows");
   rows.innerHTML = "";
-  const s = await api.get("/api/sources");
-  (s.repositories.length ? s.repositories : [{ url: "", branch: "main" }]).forEach((r) =>
-    rows.append(repoRow(r.url, r.branch)),
-  );
+  const resp = await api.get(`/api/sources?offset=0&limit=${PAGE}`);
+  total = resp.total || 0;
+  const list = resp.repositories || [];
+  if (!total) {
+    rows.append(repoRow()); // empty starter row
+    serverLoaded = 0;
+  } else {
+    list.forEach((r) => rows.append(repoRow(r.url, r.branch)));
+    serverLoaded = list.length;
+  }
+  renumber();
+  renderMore();
 }
 
-$("add-repo").onclick = () => $("repo-rows").append(repoRow());
+$("add-repo").onclick = () => {
+  const row = repoRow();
+  $("repo-rows").append(row);
+  renumber();
+  row.querySelector(".repo-url")?.focus();
+  row.scrollIntoView({ block: "nearest" });
+};
+
 $("save-repos").onclick = async () => {
+  const msg = $("repos-msg");
+  // Save replaces the whole file, so pull in any not-yet-loaded pages first —
+  // otherwise repos the user never scrolled to would be dropped.
+  if (serverLoaded < total) {
+    msg.textContent = "Loading remaining repos before save…";
+    msg.className = "msg";
+    try {
+      const resp = await api.get(`/api/sources?offset=${serverLoaded}`);
+      (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch)));
+      serverLoaded += (resp.repositories || []).length;
+      total = resp.total ?? total;
+      renumber();
+      renderMore();
+    } catch (e) {
+      msg.textContent = "Couldn't load all repos before saving: " + e.message;
+      msg.className = "msg err";
+      return;
+    }
+  }
   const repositories = [...$("repo-rows").children]
     .map((tr) => ({
       url: tr.querySelector(".repo-url").value.trim(),
       branch: (tr.querySelector(".repo-branch").value || "main").trim() || "main",
     }))
     .filter((r) => r.url);
-  const msg = $("repos-msg");
   try {
     const r = await api.put("/api/sources", { repositories });
     msg.textContent = `Saved ${r.count} repos`;
     msg.className = "msg ok";
+    total = repositories.length;
+    serverLoaded = repositories.length;
+    renderMore();
     refreshStatus();
   } catch (e) {
     msg.textContent = e.message;

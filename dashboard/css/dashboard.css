@@ -64,6 +64,13 @@ main {
 .panel.active {
   display: block;
 }
+/* A titled sub-section divider inside a panel (e.g. Pipeline under Repositories) */
+.panel-section {
+  margin: 30px 0 4px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 18px;
+}
 
 /* Repo rows — flex layout (robust vs table cells) */
 .repo-head,
@@ -94,6 +101,20 @@ main {
 .col-del {
   width: 28px;
   flex: none;
+}
+.col-idx,
+.repo-index {
+  width: 26px;
+  flex: none;
+  text-align: center;
+}
+.repo-index {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.repo-more {
+  margin: 2px 0 6px;
 }
 .repo-row input {
   width: 100%;

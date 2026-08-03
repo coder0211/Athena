@@ -125,12 +125,23 @@ class AskRequest(BaseModel):
 
 
 # --- sources (repo settings) ---------------------------------------------
-@app.get("/api/sources")
-def get_sources() -> Sources:
+def _read_sources() -> list[dict]:
+    """The raw repository list from sources.yaml (list of {url, branch})."""
     if not DEFAULT_SOURCES_PATH.exists():
-        return Sources(repositories=[])
+        return []
     data = yaml.safe_load(DEFAULT_SOURCES_PATH.read_text()) or {}
-    return Sources(repositories=data.get("repositories", []))
+    return data.get("repositories", []) or []
+
+
+@app.get("/api/sources")
+def get_sources(offset: int = 0, limit: int | None = None) -> dict:
+    """Paginated repository list. `limit` omitted → the whole list. Returns the
+    requested page plus `total` so the client can offer "show more"."""
+    repos = _read_sources()
+    total = len(repos)
+    offset = max(0, offset)
+    page = repos[offset : offset + limit] if limit is not None else repos[offset:]
+    return {"repositories": page, "total": total, "offset": offset, "limit": limit}
 
 
 @app.put("/api/sources")
@@ -240,7 +251,7 @@ def status() -> dict:
     out = {
         "built": built,
         "ask_available": ask_module.is_available(),
-        "repos": [r.url for r in get_sources().repositories],
+        "repos": [r.get("url") for r in _read_sources()],
     }
     if built:
         out["graph"] = get_engine().overview()
