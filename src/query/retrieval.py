@@ -84,7 +84,9 @@ class DocRetriever:
         """True when the semantic half is actually usable this query."""
         return self._emb is not None and embed.is_available()
 
-    def search(self, query: str, limit: int = 8) -> list[dict]:
+    def search(
+        self, query: str, limit: int = 8, documents: list[str] | None = None
+    ) -> list[dict]:
         if not self.passages or not query.strip():
             return []
 
@@ -105,6 +107,21 @@ class DocRetriever:
                     "ATHENA_EMBED_WEIGHT", 0.5
                 )
                 used_semantic = True
+
+        # Narrow to the user's @document scope: mask out every passage not in one
+        # of the named documents (matched by doc id or name, case-insensitive), so
+        # only those documents can surface. An empty/unmatched scope leaves all in.
+        allowed = {d.strip().lower() for d in (documents or []) if d and d.strip()}
+        if allowed:
+            keep = np.array(
+                [
+                    str(p.doc_id).lower() in allowed
+                    or (p.doc_name or "").lower() in allowed
+                    for p in self.passages
+                ],
+                dtype=bool,
+            )
+            scores = np.where(keep, scores, -np.inf)
 
         top = np.argsort(-scores)[: max(limit, 1)]
         out = []

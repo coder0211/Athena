@@ -118,6 +118,11 @@ async function init() {
   } catch {
     /* workspace optional */
   }
+  try {
+    S.DOCS = (await apiGet("/api/docs")) || []; // ingested documents, for @ mentions
+  } catch {
+    /* documents optional */
+  }
   renderScope();
   applyLang();
   loadConversations(); // populate the history sidebar

@@ -49,10 +49,12 @@ export function renderEmpty() {
 export function addUser(text, scope) {
   const row = el("div", "chat-msg user");
   const bubble = el("div", "bubble");
-  if (scope && (scope.repos.length || scope.symbols.length)) {
+  const docs = (scope && scope.docs) || [];
+  if (scope && (scope.repos.length || scope.symbols.length || docs.length)) {
     const tags = el("div", "msg-scope");
     scope.repos.forEach((r) => tags.append(el("span", "mtag", "@" + r)));
     scope.symbols.forEach((s) => tags.append(el("span", "mtag", "#" + s.name)));
+    docs.forEach((d) => tags.append(el("span", "mtag doc", "📄 " + d.name)));
     bubble.append(tags);
   }
   bubble.append(el("div", "msg-text", escapeHtml(text)));
@@ -74,9 +76,12 @@ export function addAssistant(text, steps, isError) {
   if (!isError) pruneRegen(); // show regenerate only on this (now latest) answer
 }
 
-// Footer under an answer: tools used (left) + actions regenerate/copy (right).
-export function buildFooter(text, steps) {
+// Footer under an answer: document sources (top), then tools used (left) +
+// actions regenerate/copy (right).
+export function buildFooter(text, steps, sources) {
   const foot = el("div", "msg-foot");
+  const srcRow = buildSources(sources);
+  if (srcRow) foot.append(srcRow);
   if (steps?.length) {
     const tools = [...new Set(steps.map((s) => s.tool))];
     const box = el("div", "tools");
@@ -89,6 +94,22 @@ export function buildFooter(text, steps) {
   actions.append(copyButton(text)); // copy the raw answer, not the rendered HTML
   foot.append(actions);
   return foot;
+}
+
+// The "📄 Nguồn:" row — one chip per document passage the answer was drawn from,
+// labelled "Document › Section". Tooltip shows the file path.
+function buildSources(sources) {
+  if (!sources?.length) return null;
+  const row = el("div", "sources");
+  row.append(el("span", "sources-label", "📄 " + t().sourcesLabel));
+  sources.forEach((s) => {
+    const doc = s.document || s.path || "document";
+    const sec = s.title || s.locator;
+    const chip = el("span", "source-chip", escapeHtml(doc) + (sec ? ` › ${escapeHtml(sec)}` : ""));
+    chip.title = [s.path, s.locator].filter(Boolean).join(" — ") || doc;
+    row.append(chip);
+  });
+  return row;
 }
 
 function copyButton(text) {

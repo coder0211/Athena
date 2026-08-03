@@ -28,7 +28,11 @@ export async function send(text) {
   if (!q || S.busy) return;
   hideEmpty();
   lockMode(); // this turn fixes the mode for the rest of the conversation
-  const scope = { repos: S.scopeRepos.slice(), symbols: S.scopeSymbols.slice() };
+  const scope = {
+    repos: S.scopeRepos.slice(),
+    symbols: S.scopeSymbols.slice(),
+    docs: S.scopeDocs.slice(),
+  };
   addUser(q, scope);
   S.history.push({ role: "user", content: q });
   $("input").value = "";
@@ -45,6 +49,7 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
   let bubble = null;
   let acc = "";
   let steps = [];
+  let sources = [];
   let unavailable = null;
   let streamError = null;
 
@@ -74,7 +79,10 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
     } else if (ev.tool) {
       steps.push({ tool: ev.tool });
       if (!row) setTypingStatus(typing, statusLabel(ev.tool)); // live status while investigating
-    } else if (ev.done && ev.steps) steps = ev.steps;
+    } else if (ev.done) {
+      if (ev.steps) steps = ev.steps;
+      if (ev.sources) sources = ev.sources;
+    }
   };
 
   try {
@@ -121,7 +129,7 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
     } else {
       bubble.innerHTML = formatAnswer(acc); // final render
       renderMermaid(bubble); // draw any mermaid diagrams (streaming showed source)
-      row.append(buildFooter(acc, steps));
+      row.append(buildFooter(acc, steps, sources));
       pruneRegen();
       S.history.push({ role: "assistant", content: acc });
       loadConversations(); // refresh title/preview/count in the sidebar

@@ -11,8 +11,10 @@ export const S = {
   lang: savedLang === "en" || savedLang === "vi" ? savedLang : "en",
   REPOS: [], // repo names, for @ mentions
   REPO_META: {}, // {name: {description, role, tags}} for @ mention hints
+  DOCS: [], // [{id, name, file_type, sections}] ingested documents, for @ mentions
   scopeRepos: [], // ["a", ...]
   scopeSymbols: [], // [{name, id, repo}]
+  scopeDocs: [], // [{id, name}] documents the search is narrowed to
   mention: null, // active mention being typed: {type, start, query}
   mentionItems: [],
   mentionActive: -1,

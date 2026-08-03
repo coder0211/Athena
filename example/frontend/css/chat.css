@@ -430,11 +430,37 @@
 /* Footer under an assistant answer: tools used (left) + copy (right) */
 .msg-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   margin-top: 7px;
   padding-left: 2px;
   max-width: 82%; /* line up with the bubble width */
+}
+/* Document sources the answer was drawn from — own line above tools/actions */
+.sources {
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.sources-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.source-chip {
+  font-size: 11px;
+  color: var(--mode-accent);
+  background: var(--panel-2);
+  border: 1px solid var(--mode-accent);
+  border-radius: 20px;
+  padding: 2px 9px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tools {
   display: flex;
@@ -669,6 +695,10 @@
   font-size: 12px;
 }
 .scope-chip.repo {
+  border-color: var(--mode-accent);
+  color: var(--mode-accent);
+}
+.scope-chip.doc {
   border-color: var(--mode-accent);
   color: var(--mode-accent);
 }

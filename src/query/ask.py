@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import config
 from query.engine import GraphQuery
@@ -94,9 +95,12 @@ _INVESTIGATE = (
     "try Book, Order, Reserve, Ticket. Use list_communities to find a feature area.\n"
     "1b. ALSO consult the DOCUMENTS with search_docs whenever the question touches "
     "requirements, business rules, policies, pricing, limits, or 'what is it supposed "
-    "to do' — the answer may be written in a spec/PDF/spreadsheet, not the code. Then "
-    "read_passage the best hits to quote them exactly, and follow their mentioned code "
-    "to confirm the docs match the implementation (flag any mismatch).\n"
+    "to do' — the answer may be written in a spec/PDF/spreadsheet, not the code. Do "
+    "this AUTOMATICALLY and SILENTLY: never ask the user for permission to search the "
+    "documents, and never reply with 'shall I look in the documents?' — just search. "
+    "Then read_passage the best hits to quote them exactly, and follow their mentioned "
+    "code to confirm the docs match the implementation (flag any mismatch). ALWAYS name "
+    "the source document (and section) you took a fact from, so the reader can trace it.\n"
     "2. To explain a flow or behaviour you MUST read_source / read_file the key symbols "
     "and follow callers/callees — DO NOT describe a flow from symbol names alone; names "
     "mislead. Searching only tells you where to look; the answer comes from reading.\n"
@@ -106,7 +110,14 @@ _INVESTIGATE = (
     "from code you read, not from names you saw. Spend your tool budget — reading three "
     "more files beats one confident-sounding guess.\n"
     "Only say the codebase lacks something after actually searching several terms and "
-    "reading the relevant files.\n\n"
+    "reading the relevant files.\n"
+    "CALL TOOLS, DON'T DESCRIBE THEM: invoke every tool through the function-calling "
+    "interface, silently. NEVER announce what you are about to do ('I will check the "
+    "documents', 'let me look this up') and NEVER write a tool call as text or in a "
+    "code block (e.g. functions.search_docs({...}) or search_docs(...)). Narrating or "
+    "printing a call does NOT run it — the user just sees a dead end. If you need a "
+    "tool, actually call it this turn; only produce plain text once you have the "
+    "answer.\n\n"
     "HOW TO REASON (internal chain-of-thought — think step by step, but never print "
     "this scratchpad):\n"
     "- Restate the question as the concrete thing to find, and name any assumption you "
@@ -417,6 +428,12 @@ _TOOL_SPECS = [
             "properties": {
                 "query": {"type": "string"},
                 "limit": {"type": "integer"},
+                "documents": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Restrict the search to these document names/ids "
+                    "only. When the user has scoped to specific documents, pass them.",
+                },
             },
             "required": ["query"],
         },
@@ -469,6 +486,7 @@ def _scope_note(scope: dict | None) -> str:
         return ""
     repos = [r for r in (scope.get("repos") or []) if r]
     syms = [s for s in (scope.get("symbols") or []) if s]
+    docs = [d for d in (scope.get("docs") or []) if d]
     parts = []
     if repos:
         parts.append(
@@ -482,6 +500,16 @@ def _scope_note(scope: dict | None) -> str:
             "Focus on these symbols: "
             + ", ".join(n for n in names if n)
             + ". Search for and read_source them first."
+        )
+    if docs:
+        names = [d.get("name") if isinstance(d, dict) else str(d) for d in docs]
+        names = [n for n in names if n]
+        parts.append(
+            "Restrict DOCUMENT search to these documents ONLY: "
+            + ", ".join(names)
+            + ". Always pass documents=["
+            + ", ".join(f'"{n}"' for n in names)
+            + "] to search_docs, then read_passage the best hits."
         )
     return ("\n\n[SCOPE — narrowed by the user]\n" + "\n".join(parts)) if parts else ""
 
@@ -527,6 +555,28 @@ def _run_tool(engine: GraphQuery, name: str, arguments: str, cache: dict) -> tup
     return result
 
 
+def _collect_source(output, sources: list[dict], seen: set) -> None:
+    """Record a document passage the model actually read (read_passage output) as a
+    citable source, de-duplicated by section id. These become the answer's refs."""
+    if not isinstance(output, dict) or output.get("error"):
+        return
+    sid = output.get("id")
+    # read_passage returns {id, document, path, title, locator, text, ...}. A search
+    # result has no `text`, so this only fires for a passage that was opened & read.
+    if not sid or sid in seen or "text" not in output:
+        return
+    seen.add(sid)
+    sources.append(
+        {
+            "id": sid,
+            "document": output.get("document"),
+            "path": output.get("path"),
+            "title": output.get("title"),
+            "locator": output.get("locator"),
+        }
+    )
+
+
 # Tools that actually inspect code / relationships (vs. locate-only search). If
 # the model tries to answer a symbol question having only searched — never read —
 # we nudge it to read the source first. Bounded so it can't loop forever.
@@ -544,18 +594,46 @@ _READ_TOOLS = {
 _MAX_NUDGES = 2
 _READ_NUDGE = (
     "[investigation check — internal, do not mention this] You are about to answer, "
-    "but you have not opened any source yet — you only searched for names, and names "
-    "do not prove behaviour. Call read_source (or read_file) on the most relevant "
-    "symbols and follow callers/callees, THEN answer from what you actually read."
+    "but you have not opened any source yet — you only searched (for code names or "
+    "documents), and a search hit does not prove the answer. Open the best hits first: "
+    "call read_source/read_file on the most relevant symbols (follow callers/callees), "
+    "or read_passage on the top document hits to quote the exact figure/rule. THEN "
+    "answer from what you actually read, and name the source document/section you used."
+)
+
+# Search tools that only LOCATE things — a hit from one still has to be read (via a
+# _READ_TOOLS call) before it can back an answer.
+_SEARCH_TOOLS = {"search_symbols", "search_docs"}
+
+
+# A small model sometimes NARRATES a tool call as text ("I'll check the docs",
+# then prints `functions.search_docs({...})`) instead of actually emitting one, so
+# the turn ends having done nothing. This matches such pseudo-calls — a tool name
+# (optionally `functions.`-prefixed) followed by `(`. Only consulted before any real
+# tool has run (steps empty), where a legitimate answer can't yet contain one, so
+# false positives are near-zero.
+_PSEUDO_CALL = re.compile(
+    r"(?:functions\.)?(?:" + "|".join(re.escape(n) for n, _, _ in _TOOL_SPECS) + r")\s*\(",
+)
+_CALL_NUDGE = (
+    "[investigation check — internal, do not mention this] You wrote a tool call as "
+    "text (or announced you would search) but did NOT actually call anything, so "
+    "nothing ran. Do not print `functions.<tool>(...)` and do not narrate your intent. "
+    "Invoke the tool now through the function-calling interface, silently, then answer "
+    "from its result."
 )
 
 
+def _looks_like_pseudo_call(text: str) -> bool:
+    return bool(text) and bool(_PSEUDO_CALL.search(text))
+
+
 def _needs_read_nudge(steps: list[dict], nudges: int) -> bool:
-    """True when the model is trying to answer a code question it only searched for
-    (found symbols) but never actually read — and we still have nudge budget."""
+    """True when the model is trying to answer a question it only searched for
+    (found symbols/documents) but never actually read — and we have nudge budget."""
     if nudges >= _MAX_NUDGES:
         return False
-    searched = any(s["tool"] == "search_symbols" for s in steps)
+    searched = any(s["tool"] in _SEARCH_TOOLS for s in steps)
     read_done = any(s["tool"] in _READ_TOOLS for s in steps)
     return searched and not read_done
 
@@ -574,6 +652,7 @@ def answer(
     {available, answer, steps[, error]}."""
     parts: list[str] = []
     steps: list[dict] = []
+    sources: list[dict] = []
     error: str | None = None
     for ev in _stream_answer(question, engine, history, scope, mode, lang):
         if "unavailable" in ev:
@@ -582,8 +661,14 @@ def answer(
             parts.append(ev["delta"])
         elif ev.get("done"):
             steps = ev.get("steps", [])
+            sources = ev.get("sources", [])
             error = ev.get("error")
-    out: dict = {"available": True, "answer": "".join(parts), "steps": steps}
+    out: dict = {
+        "available": True,
+        "answer": "".join(parts),
+        "steps": steps,
+        "sources": sources,
+    }
     if error:
         out["error"] = error
     return out
@@ -633,27 +718,45 @@ def _stream_answer(
     client = _client()
     messages = _init_messages(question, engine, history, scope, mode, lang)
     steps: list[dict] = []
+    sources: list[dict] = []  # documents actually read (read_passage) — shown as refs
+    seen_sources: set = set()
     tool_cache: dict = {}
     nudges = 0
     max_steps = config.int_env("ATHENA_MAX_STEPS", 16)
+    force_first = config.bool_env("ATHENA_FORCE_FIRST_TOOL", True)
+
+    def _create(tool_choice: str):
+        return client.chat.completions.create(
+            model=_model(),
+            messages=messages,
+            tools=_TOOLS,
+            tool_choice=tool_choice,
+            stream=True,
+            **_gen_params(),
+        )
 
     for _ in range(max_steps):
         # Stream live only once the model has read something. Until then, buffer
         # this round's text so an unread (guessed) answer can be intercepted.
         live = any(s["tool"] in _READ_TOOLS for s in steps)
-        try:
-            stream = client.chat.completions.create(
-                model=_model(),
-                messages=messages,
-                tools=_TOOLS,
-                tool_choice="auto",
-                stream=True,
-                **_gen_params(),
-            )
-        except Exception as e:  # rate limits / API errors → clean message, no crash
-            name = type(e).__name__
-            yield {"delta": _error_hint(name, e)}
-            yield {"steps": steps, "done": True, "error": name}
+        # Until a tool has actually run, FORCE one: a small model otherwise tends to
+        # narrate ("I'll check the docs") or print `functions.x(...)` as text and
+        # stop, having done nothing. `required` makes it emit a real call instead.
+        want = "required" if (force_first and not steps) else "auto"
+        # Fall back to auto if the provider rejects the forced choice (some don't
+        # support "required"); the pseudo-call guard below then catches narration.
+        stream = None
+        last_err: Exception | None = None
+        for choice in ([want, "auto"] if want != "auto" else ["auto"]):
+            try:
+                stream = _create(choice)
+                break
+            except Exception as e:  # rate limits / API errors / unsupported choice
+                last_err = e
+        if stream is None:
+            name = type(last_err).__name__
+            yield {"delta": _error_hint(name, last_err)}
+            yield {"steps": steps, "sources": sources, "done": True, "error": name}
             return
 
         content_parts: list[str] = []
@@ -678,6 +781,14 @@ def _stream_answer(
                     slot["args"] += tc.function.arguments
 
         if not tool_calls:  # no tools this round → the final answer is complete
+            text = "".join(content_parts)
+            # No real tool ran yet, but the model wrote one as text (or announced it
+            # and stopped) — re-drive it to actually call the tool.
+            if not steps and nudges < _MAX_NUDGES and _looks_like_pseudo_call(text):
+                nudges += 1
+                messages.append({"role": "assistant", "content": text or None})
+                messages.append({"role": "user", "content": _CALL_NUDGE})
+                continue
             if not live and _needs_read_nudge(steps, nudges):
                 # Answered without reading — drop the buffered draft, send it back.
                 nudges += 1
@@ -688,7 +799,7 @@ def _stream_answer(
                 continue
             if not live:  # buffered a good answer → flush it now
                 yield {"delta": "".join(content_parts)}
-            yield {"steps": steps, "done": True}
+            yield {"steps": steps, "sources": sources, "done": True}
             return
 
         # Replay the assistant turn (with its tool_calls) so the next round has context.
@@ -710,6 +821,7 @@ def _stream_answer(
         for s in ordered:
             args, output = _run_tool(engine, s["name"], s["args"], tool_cache)
             steps.append({"tool": s["name"], "input": args})
+            _collect_source(output, sources, seen_sources)
             yield {"tool": s["name"]}
             messages.append(
                 {
@@ -720,4 +832,4 @@ def _stream_answer(
             )
 
     yield {"delta": "(stopped: too many reasoning steps)"}
-    yield {"steps": steps, "done": True}
+    yield {"steps": steps, "sources": sources, "done": True}

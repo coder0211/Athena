@@ -563,10 +563,13 @@ class GraphQuery:
         self._load_docs()
         return self._retriever.count > 0
 
-    def search_docs(self, query: str, limit: int = 8) -> list[dict]:
-        """Hybrid (BM25 + embedding) search over ingested document passages."""
+    def search_docs(
+        self, query: str, limit: int = 8, documents: list[str] | None = None
+    ) -> list[dict]:
+        """Hybrid (BM25 + embedding) search over ingested document passages.
+        `documents` (names or ids) narrows the search to those documents only."""
         self._load_docs()
-        return self._retriever.search(query, limit=limit)
+        return self._retriever.search(query, limit=limit, documents=documents)
 
     def list_documents(self) -> list[dict]:
         """Every ingested Document with its type, size and section count."""

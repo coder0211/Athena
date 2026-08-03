@@ -11,10 +11,21 @@ import { autoGrow } from "./composer.js";
 let mentionSeq = 0; // bumps per search; stale async responses are ignored
 const mentionCache = new Map(); // query -> rows, so re-typed prefixes skip the network
 
+// Diacritic-insensitive fold so "@bang gia" (or "@hsk") matches "Bảng giá HSK.pdf".
+// Strips combining marks and maps đ→d, so Vietnamese document names filter naturally.
+export const fold = (s) =>
+  (s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase();
+
 export function detectMention() {
   const val = $("input").value;
   const pos = $("input").selectionStart;
-  const m = val.slice(0, pos).match(/([@#])([\w./-]*)$/);
+  // Allow any Unicode letter/number (so accented document names keep the mention
+  // open), plus . / - _ . A stray space closes the mention, as usual.
+  const m = val.slice(0, pos).match(/([@#])([\p{L}\p{N}._/-]*)$/u);
   S.mention = m ? { type: m[1], query: m[2], start: pos - m[0].length } : null;
 }
 
@@ -31,14 +42,19 @@ export async function updateMentions() {
   const mention = S.mention;
   if (!mention) return renderMentionList([]);
   if (mention.type === "@") {
-    const q = mention.query.toLowerCase();
-    renderMentionList(
-      S.REPOS.filter((r) => r.toLowerCase().includes(q)).map((r) => {
-        const meta = S.REPO_META[r] || {};
-        const sub = meta.description || meta.role || "";
-        return { label: "@" + r, sub, kind: "repo", value: r };
-      }),
-    );
+    const q = fold(mention.query);
+    const repos = S.REPOS.filter((r) => fold(r).includes(q)).map((r) => {
+      const meta = S.REPO_META[r] || {};
+      const sub = meta.description || meta.role || "";
+      return { label: "@" + r, sub, kind: "repo", value: r };
+    });
+    const docs = S.DOCS.filter((d) => fold(d.name).includes(q)).map((d) => ({
+      label: "@" + d.name,
+      sub: [d.file_type, d.sections ? d.sections + " sections" : ""].filter(Boolean).join(" · "),
+      kind: "doc",
+      value: { id: d.id, name: d.name },
+    }));
+    renderMentionList([...repos, ...docs]);
   } else if (mention.query.length >= 1) {
     const query = mention.query;
     const cached = mentionCache.get(query);
@@ -100,6 +116,8 @@ export function pickMention(it) {
   input.setSelectionRange(S.mention.start, S.mention.start);
   if (it.kind === "repo") {
     if (!S.scopeRepos.includes(it.value)) S.scopeRepos.push(it.value);
+  } else if (it.kind === "doc") {
+    if (!S.scopeDocs.some((d) => d.id === it.value.id)) S.scopeDocs.push(it.value);
   } else if (!S.scopeSymbols.some((s) => s.id === it.value.id)) {
     S.scopeSymbols.push(it.value);
   }

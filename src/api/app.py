@@ -119,7 +119,7 @@ class Sources(BaseModel):
 class AskRequest(BaseModel):
     question: str
     history: list = []  # prior [{role, content}] turns for multi-turn chat
-    scope: dict = {}  # {repos: [...], symbols: [...]} to narrow the search
+    scope: dict = {}  # {repos: [...], symbols: [...], docs: [...]} to narrow the search
     mode: str = "business"  # 'business' (non-technical) | 'technical'
     lang: str = "auto"  # 'auto' | 'en' | 'vi'
 

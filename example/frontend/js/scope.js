@@ -22,6 +22,14 @@ export function renderScope() {
       }),
     ),
   );
+  S.scopeDocs.forEach((d, i) =>
+    bar.append(
+      scopeChip("📄 " + d.name, "doc", () => {
+        S.scopeDocs.splice(i, 1);
+        renderScope();
+      }),
+    ),
+  );
 }
 
 function scopeChip(label, kind, onRemove) {
