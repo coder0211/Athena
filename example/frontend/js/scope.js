@@ -8,7 +8,7 @@ export function renderScope() {
   bar.innerHTML = "";
   S.scopeRepos.forEach((r, i) =>
     bar.append(
-      scopeChip("@" + r, "repo", () => {
+      scopeChip("/" + r, "repo", () => {
         S.scopeRepos.splice(i, 1);
         renderScope();
       }),
@@ -34,6 +34,14 @@ export function renderScope() {
     bar.append(
       scopeChip("📁 " + f.label, "doc", () => {
         S.scopeFolders.splice(i, 1);
+        renderScope();
+      }),
+    ),
+  );
+  S.scopeTools.forEach((t, i) =>
+    bar.append(
+      scopeChip("@" + t.label, "tool", () => {
+        S.scopeTools.splice(i, 1);
         renderScope();
       }),
     ),

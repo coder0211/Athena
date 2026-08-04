@@ -5,6 +5,7 @@ import { refreshStatus } from "./stats.js";
 import { loadRepos } from "./repos.js";
 import { loadWorkspace } from "./workspace.js";
 import { loadDocs } from "./docs.js";
+import { loadMcp, refreshMcpServers } from "./mcp.js";
 import "./jobs.js"; // imported for its button wiring (Fetch / Build)
 
 // --- tabs ---
@@ -14,6 +15,7 @@ document.querySelectorAll(".tab").forEach((t) =>
     document.querySelectorAll(".panel").forEach((x) => x.classList.remove("active"));
     t.classList.add("active");
     $(t.dataset.tab).classList.add("active");
+    if (t.dataset.tab === "mcp") refreshMcpServers(); // discover servers lazily
   }),
 );
 
@@ -28,3 +30,4 @@ refreshStatus();
 loadRepos();
 loadWorkspace();
 loadDocs();
+loadMcp();

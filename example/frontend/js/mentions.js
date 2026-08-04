@@ -23,9 +23,11 @@ export const fold = (s) =>
 export function detectMention() {
   const val = $("input").value;
   const pos = $("input").selectionStart;
-  // Allow any Unicode letter/number (so accented document names keep the mention
-  // open), plus . / - _ . A stray space closes the mention, as usual.
-  const m = val.slice(0, pos).match(/([@#])([\p{L}\p{N}._/-]*)$/u);
+  // Triggers: "/" (repos & docs), "@" (MCP tools), "#" (symbols). The trigger must
+  // sit at a word boundary (start of input or after whitespace) so slashes inside
+  // normal text or paths (src/query) don't open a mention. Query allows Unicode
+  // letters/numbers plus . / - _ (so accented doc names and folder paths survive).
+  const m = val.slice(0, pos).match(/(?<=^|\s)([@#/])([\p{L}\p{N}._/-]*)$/u);
   S.mention = m ? { type: m[1], query: m[2], start: pos - m[0].length } : null;
 }
 
@@ -67,12 +69,13 @@ function docFolders() {
 export async function updateMentions() {
   const mention = S.mention;
   if (!mention) return renderMentionList([]);
-  if (mention.type === "@") {
+  if (mention.type === "/") {
+    // "/" → repositories, document folders, and documents.
     const q = fold(mention.query);
     const repos = S.REPOS.filter((r) => fold(r).includes(q)).map((r) => {
       const meta = S.REPO_META[r] || {};
       const sub = meta.description || meta.role || "";
-      return { label: "@" + r, sub, kind: "repo", value: r };
+      return { label: "/" + r, sub, kind: "repo", value: r };
     });
     const folders = docFolders()
       .filter((f) => fold(f.label).includes(q))
@@ -83,12 +86,25 @@ export async function updateMentions() {
         value: { path: f.path, label: f.label },
       }));
     const docs = S.DOCS.filter((d) => fold(d.name).includes(q)).map((d) => ({
-      label: "@" + d.name,
+      label: "📄 " + d.name,
       sub: [d.file_type, d.sections ? d.sections + " sections" : ""].filter(Boolean).join(" · "),
       kind: "doc",
       value: { id: d.id, name: d.name },
     }));
     renderMentionList([...repos, ...folders, ...docs]);
+  } else if (mention.type === "@") {
+    // "@" → third-party MCP tools.
+    const q = fold(mention.query);
+    const tools = (S.TOOLS || [])
+      .filter((tl) => fold(tl.tool).includes(q) || fold(tl.server).includes(q))
+      .map((tl) => ({
+        label: "@" + tl.tool,
+        sub: `MCP · ${tl.server}${tl.description ? " · " + tl.description : ""}`,
+        kind: "tool",
+        value: { name: tl.name, label: tl.tool },
+      }));
+    ++mentionSeq; // no async search for tools
+    renderMentionList(tools.length ? tools : [{ label: t().mentionToolsEmpty, kind: "hint" }]);
   } else if (mention.query.length >= 1) {
     const query = mention.query;
     const cached = mentionCache.get(query);
@@ -154,6 +170,8 @@ export function pickMention(it) {
     if (!S.scopeFolders.some((f) => f.path === it.value.path)) S.scopeFolders.push(it.value);
   } else if (it.kind === "doc") {
     if (!S.scopeDocs.some((d) => d.id === it.value.id)) S.scopeDocs.push(it.value);
+  } else if (it.kind === "tool") {
+    if (!S.scopeTools.some((t) => t.name === it.value.name)) S.scopeTools.push(it.value);
   } else if (!S.scopeSymbols.some((s) => s.id === it.value.id)) {
     S.scopeSymbols.push(it.value);
   }

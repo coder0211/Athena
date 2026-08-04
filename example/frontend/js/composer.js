@@ -42,6 +42,7 @@ export async function send(text) {
     repos: S.scopeRepos.slice(),
     symbols: S.scopeSymbols.slice(),
     docs,
+    tools: S.scopeTools.map((t) => t.name),
   };
   // The bubble shows the tags the user actually picked (folders stay collapsed).
   const displayScope = {
@@ -49,6 +50,7 @@ export async function send(text) {
     symbols: scope.symbols,
     docs: S.scopeDocs.slice(),
     folders: S.scopeFolders.slice(),
+    tools: S.scopeTools.slice(),
   };
   addUser(q, displayScope);
   S.history.push({ role: "user", content: q });

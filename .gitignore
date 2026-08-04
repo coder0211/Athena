@@ -233,6 +233,9 @@ graphify-out/
 
 workspace.yaml
 
+# Third-party MCP server config — may contain tokens in env/headers.
+mcp_servers.json
+
 # Example chat backend — local SQLite store (conversations + history).
 # In Docker this lives on the chat-data volume; locally it defaults here.
 example/backend/data/

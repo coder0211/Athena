@@ -51,12 +51,17 @@ export function addUser(text, scope) {
   const bubble = el("div", "bubble");
   const docs = (scope && scope.docs) || [];
   const folders = (scope && scope.folders) || [];
-  if (scope && (scope.repos.length || scope.symbols.length || docs.length || folders.length)) {
+  const tools = (scope && scope.tools) || [];
+  if (
+    scope &&
+    (scope.repos.length || scope.symbols.length || docs.length || folders.length || tools.length)
+  ) {
     const tags = el("div", "msg-scope");
-    scope.repos.forEach((r) => tags.append(el("span", "mtag", "@" + r)));
+    scope.repos.forEach((r) => tags.append(el("span", "mtag", "/" + r)));
     scope.symbols.forEach((s) => tags.append(el("span", "mtag", "#" + s.name)));
     folders.forEach((f) => tags.append(el("span", "mtag doc", "📁 " + f.label)));
     docs.forEach((d) => tags.append(el("span", "mtag doc", "📄 " + d.name)));
+    tools.forEach((t) => tags.append(el("span", "mtag tool", "@" + t.label)));
     bubble.append(tags);
   }
   bubble.append(el("div", "msg-text", escapeHtml(text)));

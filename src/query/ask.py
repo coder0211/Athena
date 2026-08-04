@@ -12,6 +12,7 @@ import os
 import re
 
 import config
+from query import mcp_bridge
 from query.engine import GraphQuery
 
 
@@ -511,6 +512,16 @@ def _scope_note(scope: dict | None) -> str:
             + ", ".join(f'"{n}"' for n in names)
             + "] to search_docs, then read_passage the best hits."
         )
+    tools = [t for t in (scope.get("tools") or []) if t]
+    if tools:
+        names = [t.get("name") if isinstance(t, dict) else str(t) for t in tools]
+        names = [n for n in names if n]
+        parts.append(
+            "The user explicitly asked you to USE these external MCP tools for this "
+            "question: " + ", ".join(names) + ". They are available as functions with "
+            "those exact names — call the relevant one(s) and base the answer on what "
+            "they return."
+        )
     return ("\n\n[SCOPE — narrowed by the user]\n" + "\n".join(parts)) if parts else ""
 
 
@@ -540,14 +551,20 @@ def _init_messages(
 
 def _run_tool(engine: GraphQuery, name: str, arguments: str, cache: dict) -> tuple:
     """Execute one tool call, memoized within a single request so repeated
-    (name, args) pairs don't recompute. Returns (parsed_args, output)."""
+    (name, args) pairs don't recompute. Built-in tools dispatch to GraphQuery
+    methods; ``mcp__*`` tools route to their third-party MCP server. Returns
+    (parsed_args, output)."""
     key = (name, arguments or "")
     if key in cache:
         return cache[key]
-    method = getattr(engine, name, None)
     try:
         args = json.loads(arguments or "{}")
-        output = method(**args) if method else {"error": f"unknown tool {name}"}
+        args = args if isinstance(args, dict) else {}
+        if mcp_bridge.is_mcp_tool(name):
+            output = mcp_bridge.call_tool(name, args)
+        else:
+            method = getattr(engine, name, None)
+            output = method(**args) if method else {"error": f"unknown tool {name}"}
     except Exception as e:  # surface tool errors to the model, don't crash
         args, output = {}, {"error": f"{type(e).__name__}: {e}"}
     result = (args if isinstance(args, dict) else {}, output)
@@ -725,11 +742,15 @@ def _stream_answer(
     max_steps = config.int_env("ATHENA_MAX_STEPS", 16)
     force_first = config.bool_env("ATHENA_FORCE_FIRST_TOOL", True)
 
+    # Built-in tools + any configured third-party MCP server tools (discovered
+    # once; empty if none/unreachable, so Q&A is unaffected when MCP isn't used).
+    tools = _TOOLS + mcp_bridge.get_specs()
+
     def _create(tool_choice: str):
         return client.chat.completions.create(
             model=_model(),
             messages=messages,
-            tools=_TOOLS,
+            tools=tools,
             tool_choice=tool_choice,
             stream=True,
             **_gen_params(),

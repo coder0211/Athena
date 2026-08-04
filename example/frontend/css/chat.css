@@ -702,6 +702,10 @@
   border-color: var(--mode-accent);
   color: var(--mode-accent);
 }
+.scope-chip.tool {
+  border-color: var(--ok);
+  color: var(--ok);
+}
 .scope-chip button {
   background: none;
   border: none;

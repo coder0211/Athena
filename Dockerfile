@@ -1,7 +1,8 @@
 # Athena — code knowledge graph API + web UI.
 #
 # Bundles everything the pipeline needs: Python deps, the CodeGraph CLI (Node),
-# Graphify (pip), and git/ssh for cloning private repos. Serves the FastAPI app
+# Graphify (pip), git/ssh for cloning private repos, and npx/uvx so third-party
+# MCP servers (Node- or Python-based) can be launched. Serves the FastAPI app
 # (web UI + /api) on port 8000.
 
 FROM python:3.13-slim
@@ -15,6 +16,9 @@ RUN apt-get update \
     && npm i -g @colbymchenry/codegraph \
     && apt-get purge -y gnupg && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
+
+# uv / uvx — runtime for Python-based MCP servers (parallels npx for Node ones).
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 

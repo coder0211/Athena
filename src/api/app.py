@@ -41,6 +41,7 @@ from utils.workspace import (
     load_workspace,
     save_workspace,
 )
+from utils.mcp import MCP_PATH
 
 config.load_env()  # pick up OPENAI_API_KEY / ATHENA_* from .env
 
@@ -190,6 +191,69 @@ def put_workspace(body: WorkspaceIn) -> dict:
         "docs": len(body.docs),
         "relations": len(body.relations),
     }
+
+
+# --- third-party MCP servers (extra tools for the assistant) --------------
+# The config is edited as raw JSON (/api/mcp/config); servers + their live tools
+# are read via /api/mcp/servers; chat @-tagging uses /api/mcp/tools.
+@app.get("/api/mcp/tools")
+def get_mcp_tools() -> list[dict]:
+    """Tools discovered across enabled MCP servers — for @-tagging in chat."""
+    from query import mcp_bridge
+
+    out = []
+    for spec in mcp_bridge.get_specs():
+        name = spec["function"]["name"]  # mcp__<server>__<tool>
+        server, _, tool = name[len("mcp__"):].partition("__")
+        out.append(
+            {
+                "name": name,
+                "server": server,
+                "tool": tool,
+                "description": spec["function"].get("description", ""),
+            }
+        )
+    return out
+
+
+_MCP_STARTER = '{\n  "mcpServers": {}\n}\n'
+
+
+class McpRaw(BaseModel):
+    content: str
+
+
+@app.get("/api/mcp/config")
+def get_mcp_config() -> dict:
+    """Raw mcp_servers.json text, for direct editing in the dashboard."""
+    text = MCP_PATH.read_text() if MCP_PATH.exists() else _MCP_STARTER
+    return {"content": text}
+
+
+@app.put("/api/mcp/config")
+def put_mcp_config(body: McpRaw) -> dict:
+    """Validate + write the raw JSON. Rejects malformed JSON or a missing
+    mcpServers object with a helpful message."""
+    import json as _json
+
+    try:
+        data = _json.loads(body.content or "{}")
+    except _json.JSONDecodeError as e:
+        raise HTTPException(400, f"Invalid JSON: {e}")
+    if not isinstance(data, dict) or not isinstance(data.get("mcpServers", {}), dict):
+        raise HTTPException(400, 'Expected an object with an "mcpServers" object.')
+    text = body.content if body.content.endswith("\n") else body.content + "\n"
+    MCP_PATH.write_text(text)
+    return {"ok": True, "servers": len(data.get("mcpServers") or {})}
+
+
+@app.get("/api/mcp/servers")
+def get_mcp_servers() -> list[dict]:
+    """Each configured server with its live tools/prompts (or an error) — the
+    per-server boxes shown after saving."""
+    from query import mcp_bridge
+
+    return mcp_bridge.describe_servers()
 
 
 @app.get("/api/branches")

@@ -1,0 +1,4 @@
+# Development / test dependencies (not needed to run Athena).
+#   pip install -r requirements-dev.txt && pytest
+-r requirements.txt
+pytest>=8

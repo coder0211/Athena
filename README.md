@@ -106,11 +106,12 @@ on 8100**. Requires Docker with Compose v2.
 
 ```bash
 # 1. Config + files the container mounts from the host.
-#    Create these *before* the first run — otherwise Docker creates the two
-#    YAML files as empty directories on the bind mount.
+#    Create these *before* the first run — otherwise Docker creates the
+#    bind-mounted files as empty directories.
 cp example.env .env                       # then set OPENAI_API_KEY
 cp example.sources.yaml sources.yaml      # your repos (editable later from the UI)
 touch workspace.yaml                      # pipeline state (starts empty)
+echo '{"mcpServers": {}}' > mcp_servers.json   # MCP servers (editable from the MCP tab)
 mkdir -p .sources .knowledge              # cloned repos + built graph, persisted to host
 
 # 2. Build the image and start both services.
@@ -159,6 +160,7 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | `ATHENA_CODE_CONTEXT`        | `15`                    | Extra lines shown around a symbol.                                        |
 | `ATHENA_IMPACT_DEPTH`        | `10`                    | Default hops for impact / blast-radius.                                   |
 | `ATHENA_PATH_MAX_LEN`        | `20`                    | Default max hops for shortest-path search.                                |
+| `ATHENA_MCP_ALLOW_STDIO`     | `1`                     | Allow local (stdio) MCP servers; `0` = remote http servers only.          |
 
 ## HTTP API
 

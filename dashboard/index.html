@@ -24,6 +24,7 @@
       <button class="tab active" data-tab="repos">Repositories</button>
       <button class="tab" data-tab="documents">Documents</button>
       <button class="tab" data-tab="workspace">Workspace</button>
+      <button class="tab" data-tab="mcp">MCP</button>
     </nav>
 
     <main>
@@ -148,6 +149,41 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- MCP -->
+      <section id="mcp" class="panel">
+        <h2>MCP servers</h2>
+        <p class="hint">
+          Connect third-party <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">MCP</a> servers to
+          give the assistant extra tools (web search, ticketing, databases…). Edit the JSON directly — standard
+          <code>mcpServers</code> format, so you can paste a block straight from Cursor or Claude Desktop — then Save.
+          Use <code>${ENV_VAR}</code> in env/headers to keep secrets out of the file.
+          <b>Note:</b> a local (<code>stdio</code>) server runs its command inside the container — only add ones you
+          trust, or set <code>ATHENA_MCP_ALLOW_STDIO=0</code> to allow <code>http</code> servers only.
+        </p>
+
+        <div class="mcp-editor">
+          <div class="mcp-editor-head">
+            <span class="ws-sub">mcp_servers.json</span>
+            <span class="ws-spacer"></span>
+            <button id="mcp-format" class="btn small" type="button">Format</button>
+            <span id="mcp-msg" class="msg"></span>
+            <button id="mcp-save" class="btn small primary" type="button">Save</button>
+          </div>
+          <div class="mcp-code">
+            <div id="mcp-active" class="mcp-active-line" aria-hidden="true"></div>
+            <pre class="mcp-code-hl" aria-hidden="true"><code id="mcp-hl"></code></pre>
+            <textarea id="mcp-json" class="mcp-json" spellcheck="false" autocomplete="off"
+                      autocapitalize="off" autocorrect="off" wrap="off"></textarea>
+          </div>
+        </div>
+
+        <div class="ws-section-title">
+          Servers <span class="ws-sub" id="mcp-count"></span>
+          <button id="mcp-refresh" class="btn small" type="button">Refresh</button>
+        </div>
+        <div id="mcp-list" class="mcp-list"></div>
       </section>
 
     </main>

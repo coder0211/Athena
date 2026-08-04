@@ -15,6 +15,10 @@ services:
       # Repo config (editable from the UI) and pipeline outputs, persisted to the host.
       - ./sources.yaml:/app/sources.yaml
       - ./workspace.yaml:/app/workspace.yaml
+      # Third-party MCP server config (editable from the MCP tab) — persisted so it
+      # survives a container recreate/rebuild. Must exist on the host first (else
+      # Docker creates it as a directory); `touch mcp_servers.json` before the run.
+      - ./mcp_servers.json:/app/mcp_servers.json
       - ./.sources:/app/.sources
       - ./.knowledge:/app/.knowledge
       # Uploaded documents — persisted to the host so they survive a container

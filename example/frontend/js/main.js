@@ -123,6 +123,11 @@ async function init() {
   } catch {
     /* documents optional */
   }
+  try {
+    S.TOOLS = (await apiGet("/api/mcp/tools")) || []; // third-party MCP tools, for @ mentions
+  } catch {
+    /* MCP optional */
+  }
   renderScope();
   applyLang();
   loadConversations(); // populate the history sidebar

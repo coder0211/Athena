@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" },
+      "description": "Web search via Brave. '${BRAVE_API_KEY}' is read from the environment so the token isn't stored here.",
+      "disabled": true
+    },
+    "time": {
+      "command": "uvx",
+      "args": ["--with", "mcp<2", "mcp-server-time"],
+      "description": "Current time / timezone conversion (Python server via uvx). The '--with mcp<2' pin is needed until such servers support mcp 2.x.",
+      "disabled": true
+    },
+    "example-remote": {
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer your-token" },
+      "description": "Example remote MCP server (http transport).",
+      "disabled": true
+    }
+  }
+}
