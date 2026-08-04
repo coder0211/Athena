@@ -2,14 +2,14 @@
 // The backend owns history (keyed by S.conversationId), so we no longer send it.
 import { $, el, scrollDown, nearBottom, ICON_STOP } from "./dom.js";
 import { S } from "./state.js";
-import { t, statusLabel } from "./i18n.js";
+import { t } from "./i18n.js";
 import { formatAnswer } from "./markdown.js";
 import { renderMermaid } from "./mermaid.js";
 import { enhanceCodeBlocks } from "./codeblocks.js";
+import { createTrace } from "./trace.js";
 import {
   addUser,
   addTyping,
-  setTypingStatus,
   addAssistant,
   buildFooter,
   pruneRegen,
@@ -65,14 +65,16 @@ export async function send(text) {
   runAsk(S.lastRequest);
 }
 
-// Ask the server and stream the answer in. Shared by send() and regenerate().
-async function runAsk({ question, scope }, { regenerate = false } = {}) {
+// Ask the server and stream the answer in. Shared by send(), regenerate(), and
+// editResend() (the last passes edit:true so the server rewrites the user turn).
+async function runAsk({ question, scope }, { regenerate = false, edit = false } = {}) {
   const ctrl = new AbortController();
   S.abort = ctrl;
   setBusy(true);
   const typing = addTyping();
   let row = null;
   let bubble = null;
+  let trace = null; // investigation trace (created when the first tool runs)
   let acc = "";
   let steps = [];
   let sources = [];
@@ -86,8 +88,16 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
     typing.remove();
     row = el("div", "chat-msg assistant");
     bubble = el("div", "bubble");
+    if (trace) row.append(trace.node); // move the live trace above the answer
     row.append(bubble);
     $("messages").append(row);
+  };
+  // Show the trace as soon as Athena runs its first tool — above the still-visible
+  // typing indicator until the answer row takes over.
+  const ensureTrace = () => {
+    if (trace) return;
+    trace = createTrace();
+    typing.before(trace.node);
   };
   // Re-rendering the whole markdown on every SSE token is expensive and janky;
   // coalesce renders to at most one per animation frame.
@@ -116,8 +126,10 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
       acc += ev.delta;
       scheduleRender();
     } else if (ev.tool) {
-      steps.push({ tool: ev.tool });
-      if (!row) setTypingStatus(typing, statusLabel(ev.tool)); // live status while investigating
+      ensureTrace();
+      const step = { tool: ev.tool, input: ev.input }; // input enriches the trace target
+      steps.push(step);
+      trace.addStep(step);
     } else if (ev.followups) {
       followups = ev.followups;
     } else if (ev.done) {
@@ -137,6 +149,7 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
         mode: S.mode,
         lang: S.lang,
         regenerate,
+        edit,
       }),
       signal: ctrl.signal,
     });
@@ -166,10 +179,13 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
     typing.remove();
     if (unavailable) {
       row?.remove();
+      trace?.node.remove();
       addAssistant(unavailable, null, true);
     } else if (!row) {
+      trace?.node.remove();
       addAssistant(t().errorPrefix + (streamError || "empty response"), null, true);
     } else {
+      trace?.finalize(steps);
       finalizeAnswer(row, bubble, acc, steps, sources, followups);
     }
   } catch (e) {
@@ -178,9 +194,15 @@ async function runAsk({ question, scope }, { regenerate = false } = {}) {
     // A user-initiated stop (AbortError) keeps whatever streamed so far instead
     // of dropping it as an error; a genuine failure still surfaces.
     if (ctrl.signal.aborted) {
-      if (row) finalizeAnswer(row, bubble, acc, steps, sources, followups);
+      if (row) {
+        trace?.finalize(steps);
+        finalizeAnswer(row, bubble, acc, steps, sources, followups);
+      } else {
+        trace?.node.remove();
+      }
     } else {
       row?.remove();
+      trace?.node.remove();
       addAssistant(t().errorPrefix + e.message, null, true);
     }
   } finally {
@@ -217,6 +239,24 @@ export function regenerate() {
   rows[rows.length - 1]?.remove(); // drop the previous answer's row
   if (S.history.at(-1)?.role === "assistant") S.history.pop(); // …and its history turn
   runAsk(S.lastRequest, { regenerate: true });
+}
+
+// Resend the last question with edited text: update the visible user bubble +
+// history, drop the stale answer, and re-ask with edit:true so the server
+// rewrites the stored user turn to match (keeps the original scope).
+export function editResend(newText) {
+  if (S.busy || !S.lastRequest) return;
+  const userRows = [...$("messages").querySelectorAll(".chat-msg.user")];
+  const lastUser = userRows[userRows.length - 1];
+  const te = lastUser?.querySelector(".msg-text");
+  if (te) te.textContent = newText;
+  const asst = [...$("messages").querySelectorAll(".chat-msg.assistant:not(.typing)")];
+  asst[asst.length - 1]?.remove(); // drop the previous answer (and its trace)
+  if (S.history.at(-1)?.role === "assistant") S.history.pop();
+  if (S.history.at(-1)?.role === "user") S.history[S.history.length - 1].content = newText;
+  S.lastUserText = newText;
+  S.lastRequest = { question: newText, scope: S.lastRequest.scope };
+  runAsk(S.lastRequest, { regenerate: true, edit: true });
 }
 
 function setBusy(on) {

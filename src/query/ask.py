@@ -918,7 +918,7 @@ def _stream_answer(
             args, output = _run_tool(engine, s["name"], s["args"], tool_cache)
             steps.append({"tool": s["name"], "input": args})
             _collect_source(output, sources, seen_sources)
-            yield {"tool": s["name"]}
+            yield {"tool": s["name"], "input": args}  # input enriches the live trace
             messages.append(
                 {
                     "role": "tool",

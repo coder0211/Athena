@@ -121,6 +121,12 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
         # question), so drop the old answer and rebuild history without the
         # trailing user turn (passed separately as the question).
         await run_in_threadpool(db.delete_last_assistant, cid)
+        # An edit also rewrites that trailing user turn to the new question, so the
+        # stored conversation stays consistent with the freshly generated answer.
+        if req.edit:
+            await run_in_threadpool(
+                db.update_last_user, cid, req.question, req.scope or None
+            )
         hist = await run_in_threadpool(db.get_history, cid)
         history = hist[:-1] if hist and hist[-1]["role"] == "user" else hist
         title = None
@@ -151,6 +157,7 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
         )
         parts: list[str] = []
         steps: list = []
+        sources: list = []
         try:
             async with client.stream(
                 "POST", f"{UPSTREAM}/api/ask/stream", json=payload
@@ -170,16 +177,26 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
                         continue
                     if ev.get("delta"):
                         parts.append(ev["delta"])
-                    elif ev.get("done") and ev.get("steps"):
-                        steps = ev["steps"]
+                    elif ev.get("done"):
+                        if ev.get("steps"):
+                            steps = ev["steps"]
+                        if ev.get("sources"):
+                            sources = ev["sources"]
         except httpx.HTTPError as e:
             yield _sse({"error": f"cannot reach graph API: {type(e).__name__}: {e}"})
 
-        # Persist whatever answer we managed to stream.
+        # Persist whatever answer we managed to stream (with its steps + sources).
         answer = "".join(parts).strip()
         if answer:
             await run_in_threadpool(
-                db.add_message, cid, "assistant", answer, None, steps or None, None
+                db.add_message,
+                cid,
+                "assistant",
+                answer,
+                None,
+                steps or None,
+                None,
+                sources or None,
             )
 
     return StreamingResponse(

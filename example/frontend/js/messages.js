@@ -8,8 +8,9 @@ import {
   scrollDown,
   ICON_COPY,
   ICON_CHECK,
-  ICON_TOOL,
   ICON_REGEN,
+  ICON_EDIT,
+  ICON_EXTERNAL,
   ICON_FOLLOWUP,
 } from "./dom.js";
 import { S } from "./state.js";
@@ -17,8 +18,10 @@ import { t } from "./i18n.js";
 import { formatAnswer } from "./markdown.js";
 import { renderMermaid } from "./mermaid.js";
 import { enhanceCodeBlocks } from "./codeblocks.js";
+import { staticTrace } from "./trace.js";
+import { openSource } from "./sourceviewer.js";
 import { copyText } from "./clipboard.js";
-import { send, regenerate } from "./composer.js";
+import { send, regenerate, editResend } from "./composer.js";
 
 // --- empty / welcome state ---
 export function hideEmpty() {
@@ -75,39 +78,99 @@ export function addUser(text, scope) {
     tools.forEach((t) => tags.append(el("span", "mtag tool", "@" + t.label)));
     bubble.append(tags);
   }
-  bubble.append(el("div", "msg-text", escapeHtml(text)));
-  row.append(bubble);
+  const textEl = el("div", "msg-text", escapeHtml(text));
+  bubble.append(textEl);
+  // Edit affordance — pruned to the latest user turn (see pruneEdit), since only
+  // that turn can be re-asked without desyncing the stored history.
+  const edit = el("button", "msg-edit", ICON_EDIT);
+  edit.type = "button";
+  edit.title = t().editLabel;
+  edit.setAttribute("aria-label", t().editLabel);
+  edit.onclick = () => startUserEdit(textEl);
+  row.append(edit, bubble);
   $("messages").append(row);
+  pruneEdit();
   scrollDown();
 }
 
-export function addAssistant(text, steps, isError) {
+export function addAssistant(text, steps, isError, sources) {
   const row = el("div", "chat-msg assistant");
+  if (!isError) {
+    const tr = staticTrace(steps); // collapsed "Looked at N steps" from stored steps
+    if (tr) row.append(tr);
+  }
   const bubble = el("div", "bubble" + (isError ? " error" : ""), formatAnswer(text));
   row.append(bubble);
   if (!isError) {
     enhanceCodeBlocks(bubble);
     renderMermaid(bubble);
-    row.append(buildFooter(text, steps));
+    row.append(buildFooter(text, steps, sources)); // restores clickable citations on reload
   }
   $("messages").append(row);
   scrollDown();
   if (!isError) pruneRegen(); // show regenerate only on this (now latest) answer
 }
 
-// Footer under an answer: document sources (top), then tools used (left) +
-// actions regenerate/copy (right).
+// Inline-edit a user turn: swap the text for a textarea; Save re-asks with the
+// edited question (see editResend). Only wired on the latest user turn.
+function startUserEdit(textEl) {
+  if (S.busy || textEl.parentElement.querySelector(".edit-box")) return;
+  const box = el("div", "edit-box");
+  const ta = el("textarea", "edit-ta");
+  ta.value = textEl.textContent;
+  const acts = el("div", "edit-acts");
+  const cancel = el("button", "btn small", escapeHtml(t().cancelLabel));
+  cancel.type = "button";
+  const save = el("button", "btn small primary", escapeHtml(t().saveLabel));
+  save.type = "button";
+  acts.append(cancel, save);
+  box.append(ta, acts);
+  textEl.style.display = "none";
+  textEl.after(box);
+  const grow = () => {
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
+  };
+  grow();
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  const done = () => {
+    box.remove();
+    textEl.style.display = "";
+  };
+  ta.addEventListener("input", grow);
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") return done();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      save.click();
+    }
+  });
+  cancel.onclick = done;
+  save.onclick = () => {
+    const v = ta.value.trim();
+    if (!v) return;
+    done();
+    editResend(v);
+  };
+}
+
+// Keep the edit button only on the most recent user turn.
+export function pruneEdit() {
+  const rows = [...$("messages").querySelectorAll(".chat-msg.user")];
+  rows.forEach((row, i) => {
+    const btn = row.querySelector(".msg-edit");
+    if (btn) btn.style.display = i === rows.length - 1 ? "" : "none";
+  });
+}
+
+// Footer under an answer: document sources (top) + actions regenerate/copy
+// (right). The tools Athena used are shown in the collapsible trace above the
+// answer, so they're no longer duplicated here.
 export function buildFooter(text, steps, sources) {
   const foot = el("div", "msg-foot");
   const srcRow = buildSources(sources);
   if (srcRow) foot.append(srcRow);
-  if (steps?.length) {
-    const tools = [...new Set(steps.map((s) => s.tool))];
-    const box = el("div", "tools");
-    box.append(el("span", "tools-ic", ICON_TOOL));
-    tools.forEach((name) => box.append(el("span", "tool-chip", escapeHtml(name))));
-    foot.append(box);
-  }
   const actions = el("div", "msg-actions");
   actions.append(regenButton());
   actions.append(copyButton(text)); // copy the raw answer, not the rendered HTML
@@ -153,8 +216,18 @@ function buildSources(sources) {
   sources.forEach((s) => {
     const doc = s.document || s.path || "document";
     const sec = s.title || s.locator;
-    const chip = el("span", "source-chip", escapeHtml(doc) + (sec ? ` › ${escapeHtml(sec)}` : ""));
+    // Clickable → opens the full passage in the source viewer. Without a section
+    // id there's nothing to open, so it stays a plain (non-interactive) chip.
+    const chip = el(
+      s.id ? "button" : "span",
+      "source-chip" + (s.id ? " linked" : ""),
+      escapeHtml(doc) + (sec ? ` › ${escapeHtml(sec)}` : "") + (s.id ? ICON_EXTERNAL : ""),
+    );
     chip.title = [s.path, s.locator].filter(Boolean).join(" — ") || doc;
+    if (s.id) {
+      chip.type = "button";
+      chip.onclick = () => openSource(s);
+    }
     row.append(chip);
   });
   return row;

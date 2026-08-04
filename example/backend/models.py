@@ -26,3 +26,4 @@ class AskStreamRequest(BaseModel):
     mode: str = "business"
     lang: str = "en"
     regenerate: bool = False  # replace the last answer instead of adding a new turn
+    edit: bool = False  # with regenerate: also rewrite the last user turn to `question`

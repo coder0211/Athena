@@ -10,6 +10,7 @@ import { renderScope } from "./scope.js";
 import { loadConversations, newChat } from "./conversations.js";
 import { send, autoGrow, stopGeneration } from "./composer.js";
 import { detectMention, updateMentions, closeMentions, pickMention } from "./mentions.js";
+import { exportConversation } from "./exportmd.js";
 
 // --- composer: auto-grow textarea, mentions, Enter to send ---
 let mentionTimer = null;
@@ -57,6 +58,7 @@ $("composer").addEventListener("submit", (e) => {
   send($("input").value);
 });
 $("sb-new").onclick = newChat;
+$("export-btn").onclick = exportConversation;
 
 // Ctrl/Cmd+K starts a fresh conversation from anywhere.
 document.addEventListener("keydown", (e) => {
@@ -118,6 +120,8 @@ function applyLang() {
   if (!S.conversationId) setHeaderTitle(null); // keep the default label localized
   if (!S.busy) $("send").textContent = s.send; // (while busy it shows the Stop label)
   $("scroll-bottom").title = s.scrollBottom;
+  $("export-btn").title = s.exportLabel;
+  $("export-btn").setAttribute("aria-label", s.exportLabel);
   $("input").placeholder = s.placeholder;
   if (S.modeLocked) $("mode-toggle").title = s.modeLocked;
   renderEmpty();

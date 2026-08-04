@@ -29,6 +29,9 @@
             <div id="header-title" class="header-title">New chat</div>
           </div>
           <div class="header-side header-right">
+            <button id="export-btn" class="icon-btn" type="button" title="Download as Markdown" aria-label="Download as Markdown">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
             <div class="mode-toggle" id="mode-toggle" title="How answers are explained">
               <button class="mode-btn active" data-mode="business" type="button">Business</button>
               <button class="mode-btn" data-mode="technical" type="button">Technical</button>
@@ -73,6 +76,18 @@
         </div>
         <button id="send" class="btn primary" type="submit">Send</button>
       </form>
+    </div>
+
+    <!-- Slide-over panel that shows a cited document passage in full -->
+    <div id="source-panel" class="source-panel" hidden>
+      <div id="source-backdrop" class="source-backdrop"></div>
+      <aside class="source-sheet" role="dialog" aria-modal="true" aria-label="Document passage">
+        <header class="source-sheet-head">
+          <div id="source-heading" class="source-heading"></div>
+          <button id="source-close" class="icon-btn" type="button" title="Close" aria-label="Close">✕</button>
+        </header>
+        <div id="source-body" class="source-body"></div>
+      </aside>
     </div>
 
     <script type="module" src="js/main.js"></script>

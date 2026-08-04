@@ -68,6 +68,7 @@ function renderBlocks(text) {
   const lines = text.split(/\r?\n/);
   let html = "";
   let list = null; // 'ul' | 'ol' | null
+  let listDelim = null; // for 'ol': '.' or ')', so a "1)" sub-list doesn't merge with a "1." list
   let para = [];
   const flushPara = () => {
     if (para.length) {
@@ -79,6 +80,7 @@ function renderBlocks(text) {
     if (list) {
       html += `</${list}>`;
       list = null;
+      listDelim = null;
     }
   };
   for (const raw of lines) {
@@ -99,14 +101,20 @@ function renderBlocks(text) {
         list = "ul";
       }
       html += `<li>${renderInline(m[1])}</li>`;
-    } else if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) {
+    } else if ((m = line.match(/^\s*(\d+)([.)])\s+(.*)$/))) {
       flushPara();
-      if (list !== "ol") {
+      // A change of delimiter starts a new list, so a "1)"-style sub-list nested
+      // under a "1."-style section heading doesn't merge into (and keep counting
+      // from) the outer list. Start each list at its source number so numbered
+      // headings separated by prose still count up (1. 2. 3.) instead of all
+      // restarting at 1.
+      if (list !== "ol" || listDelim !== m[2]) {
         closeList();
-        html += "<ol>";
+        html += `<ol start="${parseInt(m[1], 10) || 1}">`;
         list = "ol";
+        listDelim = m[2];
       }
-      html += `<li>${renderInline(m[1])}</li>`;
+      html += `<li>${renderInline(m[3])}</li>`;
     } else {
       closeList();
       para.push(line);

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS messages (
   content         TEXT NOT NULL,
   scope_json      TEXT,
   steps_json      TEXT,
+  sources_json    TEXT,
   created_at      REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at);
@@ -58,6 +59,10 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _write_lock, _connect() as conn:
         conn.executescript(_SCHEMA)
+        # Migrate older DBs that predate the sources column (answer citations).
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+        if "sources_json" not in cols:
+            conn.execute("ALTER TABLE messages ADD COLUMN sources_json TEXT")
 
 
 def _now() -> float:
@@ -153,6 +158,7 @@ def get_conversation(cid: str, user_id: str = DEFAULT_USER) -> dict | None:
             "content": m["content"],
             "scope": _loads(m["scope_json"]),
             "steps": _loads(m["steps_json"]),
+            "sources": _loads(m["sources_json"]),
             "created_at": m["created_at"],
         }
         for m in msgs
@@ -196,6 +202,7 @@ def add_message(
     scope: dict | None = None,
     steps: list | None = None,
     title_if_first: str | None = None,
+    sources: list | None = None,
 ) -> dict:
     """Append a message. Bumps the conversation's updated_at; if `title_if_first`
     is given and the conversation still has its default title, set it (used to
@@ -203,8 +210,8 @@ def add_message(
     mid, now = _new_id(), _now()
     with _write_lock, _connect() as conn:
         conn.execute(
-            "INSERT INTO messages (id, conversation_id, role, content, scope_json, steps_json, created_at)"
-            " VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO messages (id, conversation_id, role, content, scope_json, steps_json, sources_json, created_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
             (
                 mid,
                 conversation_id,
@@ -212,6 +219,7 @@ def add_message(
                 content,
                 json.dumps(scope) if scope else None,
                 json.dumps(steps) if steps else None,
+                json.dumps(sources) if sources else None,
                 now,
             ),
         )
@@ -237,6 +245,22 @@ def delete_last_assistant(conversation_id: str) -> None:
         ).fetchone()
         if row:
             conn.execute("DELETE FROM messages WHERE id = ?", (row["id"],))
+
+
+def update_last_user(conversation_id: str, content: str, scope: dict | None = None) -> None:
+    """Rewrite the most recent user message's text (and scope) in place — used when
+    the user edits a question and resends, so the stored turn matches the new answer."""
+    with _write_lock, _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM messages WHERE conversation_id = ? AND role = 'user'"
+            " ORDER BY created_at DESC LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE messages SET content = ?, scope_json = ? WHERE id = ?",
+                (content, json.dumps(scope) if scope else None, row["id"]),
+            )
 
 
 def get_history(conversation_id: str) -> list[dict]:

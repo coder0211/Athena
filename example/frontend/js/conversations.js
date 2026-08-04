@@ -74,7 +74,7 @@ async function openConversation(id) {
       addUser(m.content, m.scope);
       S.history.push({ role: "user", content: m.content });
     } else {
-      addAssistant(m.content, m.steps || null);
+      addAssistant(m.content, m.steps || null, false, m.sources || null);
       S.history.push({ role: "assistant", content: m.content });
     }
   });
