@@ -23,4 +23,6 @@ export const S = {
   mentionActive: -1,
   modeLocked: false,
   lastRequest: null, // {question, scope} — replayed by regenerate
+  lastUserText: "", // last question text — recalled by the ↑ shortcut on an empty composer
+  abort: null, // AbortController for the in-flight answer (Stop button)
 };

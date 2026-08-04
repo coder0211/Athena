@@ -115,6 +115,7 @@
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
+  position: relative; /* anchor for the floating jump-to-latest button */
 }
 .icon-btn {
   flex: none;
@@ -264,6 +265,18 @@
 .chat-msg {
   display: flex;
 }
+/* Gentle entrance for each new message — skipped for reduced-motion users. */
+@media (prefers-reduced-motion: no-preference) {
+  .chat-msg {
+    animation: msg-in 0.24s ease both;
+  }
+}
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
 .chat-msg.user {
   justify-content: flex-end;
 }
@@ -399,6 +412,47 @@
   background: none;
   text-align: left;
 }
+/* Fenced code block wrapper: anchors the copy button so it stays put while the
+   code scrolls horizontally. */
+.code-block {
+  position: relative;
+  margin: 8px 0;
+}
+.code-block > pre {
+  margin: 0;
+}
+.code-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    color 0.12s;
+}
+.code-block:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+.code-copy:hover {
+  color: var(--text);
+}
+.code-copy.done {
+  color: var(--ok);
+  opacity: 1;
+}
+
 /* Syntax highlight tokens (dark theme defaults — GitHub-ish palette) */
 .tok-comment {
   color: #8b949e;
@@ -594,6 +648,115 @@
 }
 .suggestion:hover {
   border-color: var(--accent);
+}
+
+/* Follow-up suggestions under an answer: a labelled row of one-tap questions */
+.followups {
+  margin-top: 12px;
+  max-width: 82%; /* line up with the bubble + footer width */
+  animation: fu-in 0.25s ease both;
+}
+@keyframes fu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.followups-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.followups-head svg {
+  color: var(--mode-accent);
+}
+.followups-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.followup-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+.followup-chip {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 13px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text);
+  cursor: pointer;
+  max-width: 100%;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.1s;
+}
+.followup-chip:hover {
+  border-color: var(--mode-accent);
+  background: var(--mode-tint);
+}
+.followup-chip:active {
+  transform: scale(0.99);
+}
+
+/* Send button doubles as a Stop button while an answer streams */
+.composer .btn.primary.stopping {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.composer .btn.primary.stopping:hover {
+  background: #991b1b;
+  border-color: #991b1b;
+}
+.composer .btn.primary.stopping svg {
+  display: block;
+}
+
+/* Floating "jump to latest" button — appears when scrolled up off the bottom */
+.scroll-bottom {
+  position: absolute;
+  right: 24px;
+  bottom: 92px;
+  z-index: 5;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  pointer-events: none;
+  transition:
+    opacity 0.18s,
+    transform 0.18s,
+    border-color 0.15s;
+}
+.scroll-bottom.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.scroll-bottom:hover {
+  border-color: var(--mode-accent);
+  color: var(--mode-accent);
 }
 /* Mode themes — the composer switches accent so Business vs Technical is
    distinguishable at a glance. Defaults to the business (blue) palette. */

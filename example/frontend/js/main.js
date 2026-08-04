@@ -1,6 +1,6 @@
 // Entry point: wires DOM events and boots the chat. Loaded as an ES module
 // (<script type="module">), so it runs after the document is parsed.
-import { $ } from "./dom.js";
+import { $, scrollDown, nearBottom } from "./dom.js";
 import { S } from "./state.js";
 import { apiGet } from "./api.js";
 import { t } from "./i18n.js";
@@ -8,13 +8,14 @@ import { renderEmpty } from "./messages.js";
 import { applyModeTheme, setHeaderTitle } from "./mode.js";
 import { renderScope } from "./scope.js";
 import { loadConversations, newChat } from "./conversations.js";
-import { send, autoGrow } from "./composer.js";
+import { send, autoGrow, stopGeneration } from "./composer.js";
 import { detectMention, updateMentions, closeMentions, pickMention } from "./mentions.js";
 
 // --- composer: auto-grow textarea, mentions, Enter to send ---
 let mentionTimer = null;
 $("input").addEventListener("input", () => {
   autoGrow();
+  localStorage.setItem("athena_draft", $("input").value); // survive an accidental reload
   detectMention();
   clearTimeout(mentionTimer);
   mentionTimer = setTimeout(updateMentions, S.mention && S.mention.type === "#" ? 180 : 0);
@@ -36,6 +37,15 @@ $("input").addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape") return closeMentions();
+  // ↑ on an empty composer recalls the last question, ready to tweak and resend.
+  if (e.key === "ArrowUp" && !$("input").value && S.lastUserText) {
+    e.preventDefault();
+    const ta = $("input");
+    ta.value = S.lastUserText;
+    autoGrow();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    return;
+  }
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     send($("input").value);
@@ -43,9 +53,29 @@ $("input").addEventListener("keydown", (e) => {
 });
 $("composer").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (S.busy) return stopGeneration(); // Send doubles as Stop while an answer streams
   send($("input").value);
 });
 $("sb-new").onclick = newChat;
+
+// Ctrl/Cmd+K starts a fresh conversation from anywhere.
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    newChat();
+    $("input").focus();
+  }
+});
+
+// --- jump-to-latest button: shown when the user scrolls up off the bottom ---
+const scrollBtn = $("scroll-bottom");
+const syncScrollBtn = () => scrollBtn.classList.toggle("show", !nearBottom(140));
+$("messages").addEventListener("scroll", syncScrollBtn, { passive: true });
+scrollBtn.onclick = () => {
+  const m = $("messages");
+  m.scrollTo({ top: m.scrollHeight, behavior: "smooth" });
+  syncScrollBtn();
+};
 $("sb-toggle").onclick = () => $("sidebar").classList.toggle("collapsed");
 // On phones the sidebar is an overlay drawer — start it closed, and let a tap on
 // the dim backdrop close it.
@@ -86,7 +116,8 @@ function applyLang() {
   document.querySelectorAll(".mode-btn").forEach((b) => (b.textContent = s[b.dataset.mode]));
   $("sb-new").textContent = "+ " + s.newChat;
   if (!S.conversationId) setHeaderTitle(null); // keep the default label localized
-  $("send").textContent = s.send;
+  if (!S.busy) $("send").textContent = s.send; // (while busy it shows the Stop label)
+  $("scroll-bottom").title = s.scrollBottom;
   $("input").placeholder = s.placeholder;
   if (S.modeLocked) $("mode-toggle").title = s.modeLocked;
   renderEmpty();
@@ -131,6 +162,11 @@ async function init() {
   renderScope();
   applyLang();
   loadConversations(); // populate the history sidebar
+  const draft = localStorage.getItem("athena_draft"); // restore unsent text after a reload
+  if (draft) {
+    $("input").value = draft;
+    autoGrow();
+  }
   $("input").focus();
 }
 

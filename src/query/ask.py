@@ -655,6 +655,74 @@ def _needs_read_nudge(steps: list[dict], nudges: int) -> bool:
     return searched and not read_done
 
 
+# --- follow-up question suggestions ---------------------------------------
+# After an answer, propose a few natural next questions the reader is likely to
+# ask, so the chat UI can offer them as one-tap chips. Best-effort: a cheap,
+# short, non-streamed call — any failure just yields no suggestions.
+_FOLLOWUP_LANG = {"en": "English", "vi": "Vietnamese (tiếng Việt)"}
+_FOLLOWUP_VOICE = {
+    "business": "Phrase them in plain product/business language (no code identifiers), "
+    "the way a non-technical reader would ask.",
+    "technical": "Phrase them the way a developer would ask — precise, about the code, "
+    "flow, edge cases, or where to look next.",
+}
+
+
+def _parse_followups(text: str, question: str) -> list[str]:
+    """Pull a clean list of question strings out of the model's reply, tolerating
+    a ```json fence or stray prose around the array."""
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I | re.S).strip()
+    try:
+        data = json.loads(text)
+    except Exception:
+        m = re.search(r"\[.*\]", text, re.S)
+        try:
+            data = json.loads(m.group(0)) if m else []
+        except Exception:
+            return []
+    if not isinstance(data, list):
+        return []
+    out: list[str] = []
+    q_norm = question.strip().lower()
+    for item in data:
+        s = str(item).strip().strip("-•").strip()
+        if s and s.lower() != q_norm and s not in out:
+            out.append(s)
+    return out[:4]
+
+
+def _followups(client, question: str, answer: str, mode: str, lang: str) -> list[str]:
+    """Suggest up to 4 follow-up questions for the just-answered turn. Returns []
+    when disabled (ATHENA_FOLLOWUPS=false), when there's no answer, or on any error."""
+    if not config.bool_env("ATHENA_FOLLOWUPS", True) or not (answer or "").strip():
+        return []
+    lang_name = _FOLLOWUP_LANG.get(lang, "the same language as the answer")
+    voice = _FOLLOWUP_VOICE.get(mode, _FOLLOWUP_VOICE["business"])
+    prompt = (
+        "A user asked a question about a software product and received the answer "
+        "below.\n\n"
+        f"QUESTION:\n{question}\n\nANSWER:\n{answer[:3000]}\n\n"
+        "Suggest 3 concise follow-up questions the reader is most likely to ask next "
+        "to go deeper or explore a closely related area — not ones the answer already "
+        f"fully covers. {voice} Write them in {lang_name}, in the first person as the "
+        "reader would type them, each under ~14 words. Return ONLY a JSON array of "
+        "strings, nothing else."
+    )
+    try:
+        params: dict = {os.environ.get("ATHENA_TOKENS_PARAM", "max_tokens"): 220}
+        resp = client.chat.completions.create(
+            model=_model(),
+            messages=[{"role": "user", "content": prompt}],
+            stream=False,
+            **params,
+        )
+        return _parse_followups(resp.choices[0].message.content or "", question)
+    except Exception:
+        return []
+
+
 def answer(
     question: str,
     engine: GraphQuery,
@@ -670,12 +738,15 @@ def answer(
     parts: list[str] = []
     steps: list[dict] = []
     sources: list[dict] = []
+    followups: list[str] = []
     error: str | None = None
     for ev in _stream_answer(question, engine, history, scope, mode, lang):
         if "unavailable" in ev:
             return {"available": False, "reason": ev["unavailable"]}
         if "delta" in ev:
             parts.append(ev["delta"])
+        elif "followups" in ev:
+            followups = ev["followups"]
         elif ev.get("done"):
             steps = ev.get("steps", [])
             sources = ev.get("sources", [])
@@ -685,6 +756,7 @@ def answer(
         "answer": "".join(parts),
         "steps": steps,
         "sources": sources,
+        "followups": followups,
     }
     if error:
         out["error"] = error
@@ -702,7 +774,7 @@ def answer_stream(
     """Streaming variant of answer(): forwards the shared loop's events for the
     SSE endpoint to relay frame by frame. Events:
       {'unavailable': reason} | {'delta': text} | {'tool': name} |
-      {'steps': [...], 'done': True[, 'error': name]}
+      {'followups': [...]} | {'steps': [...], 'done': True[, 'error': name]}
     """
     yield from _stream_answer(question, engine, history, scope, mode, lang)
 
@@ -723,7 +795,7 @@ def _stream_answer(
     an unread (guessed) answer is intercepted and sent back to read first
     (_READ_NUDGE), so a guess never reaches the caller. Yields:
       {'unavailable': reason} | {'delta': text} | {'tool': name} |
-      {'steps': [...], 'done': True[, 'error': name]}
+      {'followups': [...]} | {'steps': [...], 'done': True[, 'error': name]}
     """
     if not is_available():
         yield {
@@ -820,6 +892,9 @@ def _stream_answer(
                 continue
             if not live:  # buffered a good answer → flush it now
                 yield {"delta": "".join(content_parts)}
+            fups = _followups(client, question, "".join(content_parts), mode, lang)
+            if fups:
+                yield {"followups": fups}
             yield {"steps": steps, "sources": sources, "done": True}
             return
 

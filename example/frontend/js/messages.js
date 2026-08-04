@@ -1,11 +1,22 @@
 // Rendering of the message stream: user/assistant bubbles, the answer footer
 // (tools used + copy/regenerate), the typing indicator, and the empty/welcome
 // state with its starter suggestions.
-import { $, el, escapeHtml, scrollDown, ICON_COPY, ICON_CHECK, ICON_TOOL, ICON_REGEN } from "./dom.js";
+import {
+  $,
+  el,
+  escapeHtml,
+  scrollDown,
+  ICON_COPY,
+  ICON_CHECK,
+  ICON_TOOL,
+  ICON_REGEN,
+  ICON_FOLLOWUP,
+} from "./dom.js";
 import { S } from "./state.js";
 import { t } from "./i18n.js";
 import { formatAnswer } from "./markdown.js";
 import { renderMermaid } from "./mermaid.js";
+import { enhanceCodeBlocks } from "./codeblocks.js";
 import { copyText } from "./clipboard.js";
 import { send, regenerate } from "./composer.js";
 
@@ -75,6 +86,7 @@ export function addAssistant(text, steps, isError) {
   const bubble = el("div", "bubble" + (isError ? " error" : ""), formatAnswer(text));
   row.append(bubble);
   if (!isError) {
+    enhanceCodeBlocks(bubble);
     renderMermaid(bubble);
     row.append(buildFooter(text, steps));
   }
@@ -101,6 +113,35 @@ export function buildFooter(text, steps, sources) {
   actions.append(copyButton(text)); // copy the raw answer, not the rendered HTML
   foot.append(actions);
   return foot;
+}
+
+// Suggested follow-up questions under an answer — one-tap chips that ask the
+// question straight away. Rendered only on the latest answer (see pruneFollowups).
+export function renderFollowups(questions) {
+  if (!questions?.length) return null;
+  const box = el("div", "followups");
+  const head = el("div", "followups-head", ICON_FOLLOWUP);
+  head.append(el("span", "followups-label", escapeHtml(t().followupsLabel)));
+  box.append(head);
+  const chips = el("div", "followup-chips");
+  questions.forEach((q) => {
+    const chip = el("button", "followup-chip", escapeHtml(q));
+    chip.type = "button";
+    chip.onclick = () => {
+      box.remove(); // the suggestions are consumed — hide them the moment one is picked
+      send(q);
+    };
+    chips.append(chip);
+  });
+  box.append(chips);
+  return box;
+}
+
+// Keep follow-up chips only on the most recent answer — older ones are stale
+// once the conversation has moved on.
+export function pruneFollowups() {
+  const boxes = [...$("messages").querySelectorAll(".followups")];
+  boxes.slice(0, -1).forEach((b) => b.remove());
 }
 
 // The "📄 Nguồn:" row — one chip per document passage the answer was drawn from,
