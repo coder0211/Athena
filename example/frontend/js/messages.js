@@ -47,13 +47,22 @@ export function renderEmpty() {
   const e = $("empty");
   if (!e) return; // gone once the conversation starts
   const s = t();
-  const c = s.copy[S.mode] || s.copy.business;
-  e.querySelector("h2").textContent = c.title;
-  e.querySelector("p").textContent = c.desc;
+  // Built-in types (business/technical) have rich, localized welcome copy;
+  // a custom type uses its own label + generated greeting/suggestions, falling
+  // back to the business copy so the screen is never empty.
+  const builtin = s.copy[S.mode];
+  const persona = (S.PERSONAS || []).find((p) => p.id === S.mode);
+  const title = builtin?.title || persona?.label || s.copy.business.title;
+  const desc = builtin?.desc || persona?.greeting || persona?.description || s.copy.business.desc;
+  const suggestions =
+    builtin?.suggestions ||
+    (persona?.suggestions?.length ? persona.suggestions : s.copy.business.suggestions);
+  e.querySelector("h2").textContent = title;
+  e.querySelector("p").textContent = desc;
   e.querySelector(".chat-empty-tip").innerHTML = s.tip;
   const box = $("suggestions");
   box.innerHTML = "";
-  c.suggestions.forEach((q) => {
+  suggestions.forEach((q) => {
     const chip = el("button", "suggestion", escapeHtml(q));
     chip.type = "button";
     chip.onclick = () => send(q);

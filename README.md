@@ -22,8 +22,10 @@ docs you upload — and explains it, for business stakeholders and developers al
 
 - **Ask in plain language** — the Q&A agent plans, searches the graph, reads the
   actual code, and explains a flow step by step. It cites where things live.
-- **Two audiences, one question** — a **Business** mode (non-technical, no jargon)
-  and a **Technical** mode (call paths, files, snippets), toggled per chat.
+- **Answer types you can extend** — built-in **Business** (non-technical, no jargon)
+  and **Technical** (call paths, files, snippets) types, plus your own (Sales,
+  Marketing, Support, …): describe the reader in plain language and Athena writes
+  the instruction for you. Pick a type per chat.
 - **Streaming answers** — responses stream in token by token, with live status
   ("Searching the code…", "Reading the source…") as the agent investigates.
 - **Built for reading** — Markdown + syntax-highlighted code blocks, rendered
@@ -111,6 +113,7 @@ on 8100**. Requires Docker with Compose v2.
 cp example.env .env                       # then set OPENAI_API_KEY
 cp example.sources.yaml sources.yaml      # your repos (editable later from the UI)
 touch workspace.yaml                      # pipeline state (starts empty)
+touch personas.yaml                       # custom answer types (starts empty; add them in chat)
 echo '{"mcpServers": {}}' > mcp_servers.json   # MCP servers (editable from the MCP tab)
 mkdir -p .sources .knowledge              # cloned repos + built graph, persisted to host
 
@@ -178,6 +181,10 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | GET     | `/api/docs/search?q=`                   | search document passages                     |
 | POST    | `/api/ask` `{question}`                 | natural-language answer (+ tool trace)       |
 | POST    | `/api/ask/stream` `{question}`          | same, streamed as Server-Sent Events         |
+| GET     | `/api/personas`                         | list answer types (built-in + custom)        |
+| POST    | `/api/personas`                         | create / update a custom type                |
+| DELETE  | `/api/personas/{id}`                    | delete a custom type                         |
+| POST    | `/api/personas/generate` `{description}`| draft a type's instruction from a description|
 
 The chat app (`example/backend`, :8100) adds conversation + history endpoints
 (`/api/conversations…`) on top of this API — see

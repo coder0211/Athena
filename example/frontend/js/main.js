@@ -5,7 +5,7 @@ import { S } from "./state.js";
 import { apiGet } from "./api.js";
 import { t } from "./i18n.js";
 import { renderEmpty } from "./messages.js";
-import { applyModeTheme, setHeaderTitle } from "./mode.js";
+import { applyModeTheme, setHeaderTitle, initPersonaPicker, loadPersonas, applyPersonaI18n } from "./mode.js";
 import { renderScope } from "./scope.js";
 import { loadConversations, newChat, filterConversations } from "./conversations.js";
 import { send, autoGrow, stopGeneration } from "./composer.js";
@@ -98,19 +98,9 @@ window.addEventListener("resize", () => {
   $("sidebar").classList.toggle("collapsed", m);
 });
 
-// --- Business ⇄ Technical mode toggle ---
+// --- Answer type (persona) picker ---
 applyModeTheme();
-document.querySelectorAll(".mode-btn").forEach((b) => {
-  b.classList.toggle("active", b.dataset.mode === S.mode);
-  b.onclick = () => {
-    if (S.modeLocked) return;
-    S.mode = b.dataset.mode;
-    localStorage.setItem("athena_mode", S.mode);
-    document.querySelectorAll(".mode-btn").forEach((x) => x.classList.toggle("active", x === b));
-    applyModeTheme();
-    renderEmpty(); // refresh the welcome copy + suggestions for the new mode
-  };
-});
+initPersonaPicker();
 
 // --- response language: whole UI follows the choice ---
 $("lang-select").value = S.lang;
@@ -124,7 +114,7 @@ $("lang-select").onchange = () => {
 function applyLang() {
   document.documentElement.lang = S.lang;
   const s = t();
-  document.querySelectorAll(".mode-btn").forEach((b) => (b.textContent = s[b.dataset.mode]));
+  applyPersonaI18n(); // re-skin the type picker menu + create/edit modal
   $("sb-new").textContent = "+ " + s.newChat;
   if (!S.conversationId) setHeaderTitle(null); // keep the default label localized
   if (!S.busy) $("send").textContent = s.send; // (while busy it shows the Stop label)
@@ -133,7 +123,6 @@ function applyLang() {
   $("export-btn").setAttribute("aria-label", s.exportLabel);
   $("conv-search").placeholder = s.searchPlaceholder;
   $("input").placeholder = s.placeholder;
-  if (S.modeLocked) $("mode-toggle").title = s.modeLocked;
   renderEmpty();
   loadConversations(); // re-skin the empty-state / labels in the sidebar
 }
@@ -173,6 +162,7 @@ async function init() {
   } catch {
     /* MCP optional */
   }
+  await loadPersonas(); // answer "types" (built-in + custom) for the picker
   renderScope();
   applyLang();
   loadConversations(); // populate the history sidebar

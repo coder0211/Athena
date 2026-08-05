@@ -51,6 +51,13 @@ def docs_config_path() -> Path:
     return _resolve(os.environ.get("ATHENA_DOCS_CONFIG"), PROJECT_ROOT / "docs.yaml")
 
 
+def personas_path() -> Path:
+    """personas.yaml — user-defined answer 'types' beside sources.yaml
+    (ATHENA_PERSONAS). Holds only custom personas / built-in overrides; the two
+    built-ins are seeded in code."""
+    return _resolve(os.environ.get("ATHENA_PERSONAS"), PROJECT_ROOT / "personas.yaml")
+
+
 def docs_root() -> Path:
     """Root under which dashboard uploads are stored + scanned (ATHENA_DOCS)."""
     return _resolve(os.environ.get("ATHENA_DOCS"), PROJECT_ROOT / ".docs")

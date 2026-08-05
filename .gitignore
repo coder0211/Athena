@@ -233,6 +233,9 @@ graphify-out/
 
 workspace.yaml
 
+# Custom answer "types" (personas) added from the chat UI — user data.
+personas.yaml
+
 # Third-party MCP server config — may contain tokens in env/headers.
 mcp_servers.json
 

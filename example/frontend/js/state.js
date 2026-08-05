@@ -7,8 +7,9 @@ export const S = {
   history: [], // [{role:'user'|'assistant', content}]
   conversationId: null, // current conversation on the backend (null = not created yet)
   busy: false,
-  mode: localStorage.getItem("athena_mode") || "business", // 'business' | 'technical'
+  mode: localStorage.getItem("athena_mode") || "business", // persona id (answer "type")
   lang: savedLang === "en" || savedLang === "vi" ? savedLang : "en",
+  PERSONAS: [], // answer "types": [{id, label, description, icon, instruction, greeting, suggestions, builtin}]
   REPOS: [], // repo names, for @ mentions
   REPO_META: {}, // {name: {description, role, tags}} for @ mention hints
   DOCS: [], // [{id, name, file_type, sections}] ingested documents, for @ mentions

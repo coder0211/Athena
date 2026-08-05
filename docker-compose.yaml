@@ -19,6 +19,10 @@ services:
       # survives a container recreate/rebuild. Must exist on the host first (else
       # Docker creates it as a directory); `touch mcp_servers.json` before the run.
       - ./mcp_servers.json:/app/mcp_servers.json
+      # Custom answer "types" (personas) created from the chat UI. Persisted so
+      # they survive a recreate/rebuild. Must exist on the host first (else Docker
+      # creates it as a directory); `touch personas.yaml` before the run.
+      - ./personas.yaml:/app/personas.yaml
       - ./.sources:/app/.sources
       - ./.knowledge:/app/.knowledge
       # Uploaded documents — persisted to the host so they survive a container

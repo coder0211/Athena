@@ -31,6 +31,7 @@ import main as pipeline
 from extractors.documents import SUPPORTED_EXTENSIONS
 from graph import docs_reindex
 from query import ask as ask_module
+from query import personas as personas_module
 from query.engine import GraphQuery
 from utils.docs import document_roots, load_docs_config, save_docs_config
 from utils.repo.fetch import DEFAULT_SOURCES_PATH, fetch
@@ -121,8 +122,23 @@ class AskRequest(BaseModel):
     question: str
     history: list = []  # prior [{role, content}] turns for multi-turn chat
     scope: dict = {}  # {repos: [...], symbols: [...], docs: [...]} to narrow the search
-    mode: str = "business"  # 'business' (non-technical) | 'technical'
+    mode: str = "business"  # persona id — 'business'/'technical' or a custom type
     lang: str = "auto"  # 'auto' | 'en' | 'vi'
+
+
+class PersonaIn(BaseModel):
+    id: str = ""  # slug; derived from label when empty
+    label: str
+    description: str = ""
+    instruction: str
+    greeting: str = ""
+    suggestions: list[str] = []
+    followup_voice: str = ""
+
+
+class PersonaGenerateIn(BaseModel):
+    description: str  # plain-language description of the reader / desired output
+    label: str = ""  # optional preferred type name
 
 
 # --- sources (repo settings) ---------------------------------------------
@@ -549,6 +565,58 @@ def reindex_docs() -> dict:
 @app.get("/api/docs/search")
 def docs_search(q: str, limit: int = 8) -> list[dict]:
     return get_engine().search_docs(q, limit=limit)
+
+
+# --- answer personas (the "type" library) ---------------------------------
+# Built-in `business`/`technical` plus any custom types the user adds; each
+# shapes how an answer is written. `generate` drafts one from a description.
+@app.get("/api/personas")
+def get_personas() -> dict:
+    return {"personas": personas_module.list_personas()}
+
+
+@app.post("/api/personas")
+def upsert_persona(body: PersonaIn) -> dict:
+    try:
+        return personas_module.upsert(body.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/personas/{persona_id}")
+def delete_persona(persona_id: str) -> dict:
+    try:
+        personas_module.delete(persona_id)
+    except ValueError as e:  # built-in — can't delete
+        raise HTTPException(status_code=400, detail=str(e))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown type.")
+    return {"ok": True}
+
+
+@app.post("/api/personas/generate")
+def generate_persona(body: PersonaGenerateIn) -> dict:
+    """Draft a persona from a plain-language description (not saved — the client
+    previews/edits, then POSTs it back to /api/personas to save)."""
+    if not ask_module.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="Set OPENAI_API_KEY to generate a type from a description.",
+        )
+    token_param = os.environ.get("ATHENA_TOKENS_PARAM", "max_tokens")
+    try:
+        draft = personas_module.generate_instruction(
+            ask_module._client(),
+            ask_module._model(),
+            body.description,
+            body.label,
+            **{token_param: 1400},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # LLM/provider error — surface cleanly, no 500
+        raise HTTPException(status_code=502, detail=f"{type(e).__name__}: {e}")
+    return draft
 
 
 # --- natural-language Q&A -------------------------------------------------

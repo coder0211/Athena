@@ -36,9 +36,19 @@
             <button id="export-btn" class="icon-btn" type="button" title="Download as Markdown" aria-label="Download as Markdown">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
-            <div class="mode-toggle" id="mode-toggle" title="How answers are explained">
-              <button class="mode-btn active" data-mode="business" type="button">Business</button>
-              <button class="mode-btn" data-mode="technical" type="button">Technical</button>
+            <div class="mode-picker" id="mode-picker">
+              <button
+                class="mode-picker-btn"
+                id="mode-picker-btn"
+                type="button"
+                title="How answers are explained"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+              >
+                <span class="mode-picker-label" id="mode-picker-label">Business</span>
+                <svg class="mode-picker-caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="mode-menu" id="mode-menu" role="listbox" hidden></div>
             </div>
             <select id="lang-select" class="lang-select" title="Response language">
               <option value="en">English</option>
@@ -126,6 +136,47 @@
         <button id="lightbox-close" class="icon-btn" type="button" title="Close" aria-label="Close">✕</button>
       </div>
       <div id="lightbox-body" class="lightbox-body"></div>
+    </div>
+
+    <!-- Create / edit an answer "type" (persona): describe → generate → edit → save -->
+    <div id="persona-modal" class="persona-modal" hidden>
+      <div id="persona-backdrop" class="persona-backdrop"></div>
+      <div class="persona-box" role="dialog" aria-modal="true" aria-label="Answer type">
+        <header class="persona-head">
+          <div class="persona-modal-title" id="persona-modal-title">Create a type</div>
+          <button id="persona-close" class="icon-btn" type="button" title="Close" aria-label="Close">✕</button>
+        </header>
+        <div class="persona-body">
+          <label class="persona-field">
+            <span class="persona-label" id="persona-name-label">Name</span>
+            <input id="persona-name" type="text" autocomplete="off" />
+          </label>
+          <div class="persona-field">
+            <span class="persona-label" id="persona-audience-label">Who are the answers for?</span>
+            <span class="persona-sub" id="persona-audience-hint"></span>
+            <textarea id="persona-desc" rows="3"></textarea>
+            <button id="persona-generate" class="btn persona-generate" type="button">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+              <span id="persona-generate-label">Generate instruction</span>
+            </button>
+          </div>
+          <label class="persona-field">
+            <span class="persona-label">
+              <span id="persona-instruction-label">Instruction</span>
+              <small class="persona-sub-inline" id="persona-instruction-hint"></small>
+            </span>
+            <textarea id="persona-instruction" rows="10"></textarea>
+          </label>
+          <div id="persona-error" class="persona-error" hidden></div>
+        </div>
+        <footer class="persona-foot">
+          <button id="persona-delete" class="btn danger persona-del" type="button" hidden>Delete</button>
+          <div class="persona-foot-right">
+            <button id="persona-cancel" class="btn" type="button">Cancel</button>
+            <button id="persona-save" class="btn primary" type="button">Save</button>
+          </div>
+        </footer>
+      </div>
     </div>
 
     <!-- Transient action feedback -->

@@ -1068,35 +1068,276 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
-/* Business ⇄ Technical segmented toggle */
-.mode-toggle {
+/* Answer-type (persona) picker: a button that opens a dropdown of all types */
+.mode-picker {
+  position: relative;
+}
+.mode-picker-btn {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 5px 11px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 8px;
-}
-.mode-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  padding: 5px 12px;
+  color: var(--text);
   font-size: 12.5px;
-  border-radius: 6px;
   cursor: pointer;
 }
-.mode-btn.active {
-  background: var(--mode-send, var(--accent));
-  color: #fff;
+.mode-picker-btn:hover {
+  border-color: var(--mode-send, var(--accent));
 }
-/* Once a conversation has started, the mode is fixed for it. */
-.mode-toggle.locked,
-.mode-toggle.locked .mode-btn {
+.mode-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mode-picker-caret {
+  color: var(--muted);
+  flex: none;
+}
+.mode-picker.locked .mode-picker-btn {
   cursor: not-allowed;
+  opacity: 0.55;
 }
-.mode-toggle.locked .mode-btn:not(.active) {
-  opacity: 0.4;
+.mode-picker.locked .mode-picker-caret {
+  display: none;
+}
+
+.mode-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 70;
+  width: min(320px, 84vw);
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4);
+  animation: palette-in 0.13s ease;
+}
+.mode-menu-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 10px;
+  padding-right: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.mode-menu-item:hover {
+  background: var(--panel-2);
+}
+.mode-menu-item.active {
+  background: var(--mode-tint);
+}
+.mode-menu-text {
+  min-width: 0;
+}
+.mode-menu-label {
+  display: block;
+  font-size: 13.5px;
+  color: var(--text);
+  font-weight: 500;
+}
+.mode-menu-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 5px;
+  margin-left: 4px;
+  vertical-align: 1px;
+}
+.mode-menu-desc {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.mode-menu-edit {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-flex;
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.mode-menu-item:hover .mode-menu-edit {
+  opacity: 1;
+}
+.mode-menu-edit:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.mode-menu-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+  color: var(--mode-send, var(--accent));
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.mode-menu-add:hover {
+  background: var(--panel-2);
+}
+.mode-menu-add-plus {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Create / edit answer-type modal */
+.persona-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+}
+.persona-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+.persona-box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(600px, 94vw);
+  max-height: 88vh;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  animation: palette-in 0.14s ease;
+}
+.persona-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.persona-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.persona-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.persona-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.persona-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.persona-sub,
+.persona-sub-inline {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.persona-sub-inline {
+  margin-left: 6px;
+}
+.persona-field input,
+.persona-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  resize: vertical;
+}
+.persona-field textarea {
+  line-height: 1.5;
+}
+.persona-field input:focus,
+.persona-field textarea:focus {
+  outline: none;
+  border-color: var(--mode-send, var(--accent));
+}
+#persona-instruction {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+.persona-generate {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.persona-generate.busy svg {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.persona-error {
+  font-size: 12.5px;
+  color: #ef5350;
+  background: rgba(239, 83, 80, 0.1);
+  border: 1px solid rgba(239, 83, 80, 0.3);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.persona-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.persona-foot-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.btn.danger {
+  background: none;
+  border: 1px solid rgba(239, 83, 80, 0.4);
+  color: #ef5350;
+}
+.btn.danger:hover {
+  background: rgba(239, 83, 80, 0.12);
 }
 
 /* --- Investigation trace: the collapsible list of tools Athena ran --- */

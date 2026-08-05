@@ -206,6 +206,41 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
     )
 
 
+# --- persona (answer "type") management — pass through to the graph API ---
+# The type library lives on the upstream engine; the chat UI creates/generates/
+# deletes types through it. (GET /api/personas is covered by proxy_get below.)
+async def _proxy(method: str, path: str, request: Request) -> Response:
+    client: httpx.AsyncClient = request.app.state.http
+    body = await request.body()
+    try:
+        r = await client.request(
+            method,
+            f"{UPSTREAM}/api/{path}",
+            content=body,
+            headers={"content-type": request.headers.get("content-type", "application/json")},
+            params=request.query_params,
+            timeout=60,  # generation calls the LLM — allow headroom
+        )
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"graph API unreachable: {type(e).__name__}: {e}")
+    return Response(
+        content=r.content,
+        status_code=r.status_code,
+        media_type=r.headers.get("content-type"),
+    )
+
+
+@app.post("/api/personas")
+@app.post("/api/personas/generate")
+async def proxy_personas_post(request: Request) -> Response:
+    return await _proxy("POST", request.url.path.removeprefix("/api/"), request)
+
+
+@app.delete("/api/personas/{persona_id}")
+async def proxy_personas_delete(persona_id: str, request: Request) -> Response:
+    return await _proxy("DELETE", f"personas/{persona_id}", request)
+
+
 # --- pass-through to the upstream graph API for read endpoints ------------
 # Registered AFTER the specific /api routes above, so those win; this catches
 # /api/search, /api/status, /api/workspace, etc. the chat UI still needs.
