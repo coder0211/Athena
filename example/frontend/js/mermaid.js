@@ -1,9 +1,11 @@
 // Mermaid diagrams: lazy-loaded from CDN only when a diagram actually appears.
 // If the CDN is unreachable (offline), the ```mermaid source stays visible as
 // the fallback (see markdown.js).
-import { $, el, scrollDown, ICON_COPY, ICON_CHECK } from "./dom.js";
+import { $, el, scrollDown, ICON_COPY, ICON_CHECK, ICON_ZOOM } from "./dom.js";
 import { t } from "./i18n.js";
 import { copyText } from "./clipboard.js";
+import { openLightbox } from "./lightbox.js";
+import { showToast } from "./toast.js";
 
 let mermaidLoading = null;
 
@@ -37,7 +39,14 @@ export async function renderMermaid(scope) {
     try {
       const { svg } = await mermaid.render("mmd-" + Math.random().toString(36).slice(2), src);
       block.innerHTML = svg;
-      block.append(mermaidCopyButton(src)); // SVG replaced the source — offer it back
+      // Click the diagram (or the zoom button) to view it full-size — large
+      // flowcharts/sequence diagrams would otherwise be clipped by the bubble.
+      const rendered = block.querySelector("svg");
+      if (rendered) {
+        rendered.classList.add("mermaid-zoomable");
+        rendered.addEventListener("click", () => openLightbox(svg));
+      }
+      block.append(mermaidZoomButton(svg), mermaidCopyButton(src));
     } catch {
       block.removeAttribute("data-rendered"); // invalid diagram → keep source visible
     }
@@ -53,6 +62,7 @@ function mermaidCopyButton(src) {
   btn.setAttribute("aria-label", t().copyLabel);
   btn.onclick = async () => {
     if (!(await copyText(src))) return;
+    showToast(t().copiedToast);
     btn.innerHTML = ICON_CHECK;
     btn.classList.add("done");
     setTimeout(() => {
@@ -60,5 +70,15 @@ function mermaidCopyButton(src) {
       btn.classList.remove("done");
     }, 1500);
   };
+  return btn;
+}
+
+// Corner button that opens the rendered diagram full-size in the lightbox.
+function mermaidZoomButton(svg) {
+  const btn = el("button", "mermaid-copy mermaid-zoom", ICON_ZOOM);
+  btn.type = "button";
+  btn.title = t().zoomLabel;
+  btn.setAttribute("aria-label", t().zoomLabel);
+  btn.onclick = () => openLightbox(svg);
   return btn;
 }

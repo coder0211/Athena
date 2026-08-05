@@ -347,6 +347,18 @@ def impact(node_id: str, depth: int | None = None) -> dict:
     return get_engine().impact(node_id, depth=depth)
 
 
+@app.get("/api/source/{node_id:path}")
+def source(node_id: str, relations: bool = True) -> dict:
+    """A symbol's real source code plus (optionally) its callers/callees, so the
+    chat UI can turn a cited symbol into a browsable code panel."""
+    eng = get_engine()
+    out = eng.read_source(node_id)
+    if relations and "error" not in out:
+        out["callers"] = eng.callers(node_id, limit=30)
+        out["callees"] = eng.callees(node_id, limit=30)
+    return out
+
+
 @app.get("/api/communities")
 def communities(q: str | None = None, limit: int = 30) -> list[dict]:
     return get_engine().list_communities(query=q, limit=limit)

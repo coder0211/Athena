@@ -4,6 +4,7 @@
 import { el, ICON_COPY, ICON_CHECK } from "./dom.js";
 import { t } from "./i18n.js";
 import { copyText } from "./clipboard.js";
+import { showToast } from "./toast.js";
 
 export function enhanceCodeBlocks(scope) {
   scope.querySelectorAll("pre:not([data-cb])").forEach((pre) => {
@@ -24,6 +25,7 @@ function codeCopyButton(src) {
   btn.setAttribute("aria-label", t().copyLabel);
   btn.onclick = async () => {
     if (!(await copyText(src))) return;
+    showToast(t().copiedToast);
     btn.innerHTML = ICON_CHECK;
     btn.classList.add("done");
     setTimeout(() => {

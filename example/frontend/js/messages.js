@@ -18,9 +18,11 @@ import { t } from "./i18n.js";
 import { formatAnswer } from "./markdown.js";
 import { renderMermaid } from "./mermaid.js";
 import { enhanceCodeBlocks } from "./codeblocks.js";
+import { enhanceCodeRefs } from "./codeviewer.js";
 import { staticTrace } from "./trace.js";
 import { openSource } from "./sourceviewer.js";
 import { copyText } from "./clipboard.js";
+import { showToast } from "./toast.js";
 import { send, regenerate, editResend } from "./composer.js";
 
 // --- empty / welcome state ---
@@ -57,6 +59,25 @@ export function renderEmpty() {
     chip.onclick = () => send(q);
     box.append(chip);
   });
+  // Starters built from the actually-indexed repos, so the first run is relevant
+  // to this codebase rather than the generic ticket examples.
+  (S.REPOS || []).slice(0, 4).forEach((repo) => {
+    const name = shortRepoName(repo);
+    const q = s.repoStarter.replace("{repo}", name);
+    const chip = el("button", "suggestion suggestion-repo", "📦 " + escapeHtml(q));
+    chip.type = "button";
+    chip.onclick = () => send(q);
+    box.append(chip);
+  });
+}
+
+// A short, human repo name from an indexed repo id (often a full git URL).
+function shortRepoName(repo) {
+  return String(repo)
+    .replace(/\.git$/, "")
+    .split(/[/:]/)
+    .filter(Boolean)
+    .pop();
 }
 
 // --- message bubbles ---
@@ -103,12 +124,19 @@ export function addAssistant(text, steps, isError, sources) {
   row.append(bubble);
   if (!isError) {
     enhanceCodeBlocks(bubble);
+    enhanceCodeRefs(bubble); // make cited symbols open the code panel
     renderMermaid(bubble);
     row.append(buildFooter(text, steps, sources)); // restores clickable citations on reload
+    row.append(refineRow());
+  } else if (S.lastRequest) {
+    row.append(retryFooter()); // let the user re-run the failed question
   }
   $("messages").append(row);
   scrollDown();
-  if (!isError) pruneRegen(); // show regenerate only on this (now latest) answer
+  if (!isError) {
+    pruneRegen(); // show regenerate only on this (now latest) answer
+    pruneRefine();
+  }
 }
 
 // Inline-edit a user turn: swap the text for a textarea; Save re-asks with the
@@ -200,6 +228,36 @@ export function renderFollowups(questions) {
   return box;
 }
 
+// One-tap refinements under an answer: re-ask with a modifier (shorter / simpler
+// / more technical / example) as a normal follow-up turn, using conversation
+// context. Shown only on the latest answer (see pruneRefine).
+export function refineRow() {
+  const s = t().refine;
+  const row = el("div", "refine-row");
+  row.append(el("span", "refine-label", escapeHtml(s.label)));
+  [
+    ["shorter", s.shorter],
+    ["simpler", s.simpler],
+    ["deeper", s.deeper],
+    ["example", s.example],
+  ].forEach(([key, label]) => {
+    const chip = el("button", "refine-chip", escapeHtml(label));
+    chip.type = "button";
+    chip.onclick = () => send(t().refinePrompt[key]);
+    row.append(chip);
+  });
+  return row;
+}
+
+// Keep the refine row only on the most recent answer.
+export function pruneRefine() {
+  const rows = [...$("messages").querySelectorAll(".chat-msg.assistant:not(.typing)")];
+  rows.forEach((row, i) => {
+    const r = row.querySelector(".refine-row");
+    if (r) r.style.display = i === rows.length - 1 ? "" : "none";
+  });
+}
+
 // Keep follow-up chips only on the most recent answer — older ones are stale
 // once the conversation has moved on.
 export function pruneFollowups() {
@@ -245,6 +303,7 @@ function copyButton(text) {
   btn.onclick = async () => {
     const ok = await copyText(text);
     if (!ok) return;
+    showToast(t().copiedToast);
     setState(true);
     setTimeout(() => setState(false), 1500);
   };
@@ -257,6 +316,20 @@ function regenButton() {
   btn.title = t().regenLabel;
   btn.onclick = () => regenerate();
   return btn;
+}
+
+// Footer shown under an error bubble: a single Retry action that re-runs the
+// last question (regenerate() drops the error bubble and re-asks).
+function retryFooter() {
+  const foot = el("div", "msg-foot");
+  const actions = el("div", "msg-actions");
+  const btn = el("button", "act-btn regen-btn", ICON_REGEN + `<span>${t().retryLabel}</span>`);
+  btn.type = "button";
+  btn.title = t().retryLabel;
+  btn.onclick = () => regenerate();
+  actions.append(btn);
+  foot.append(actions);
+  return foot;
 }
 
 // Keep the regenerate button only on the most recent answer.

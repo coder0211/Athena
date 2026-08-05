@@ -52,75 +52,129 @@ export function formatAnswer(text) {
     .join("");
 }
 
-// Inline markdown: escape, then `code`, **bold**, *italic*, and [text](url).
+// Inline markdown: escape, then `code`, [text](url) links, bare URLs, **bold**,
+// *italic*, and ~~strikethrough~~. Links are resolved before the bare-URL pass so
+// a URL already inside an <a href="…"> (preceded by ") isn't linkified twice.
 function renderInline(s) {
   return escapeHtml(s)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<]+)/g, (_m, pre, url) => {
+      // Trim trailing sentence punctuation so "see https://x." doesn't swallow the dot.
+      const trail = (url.match(/[.,;:!?)]+$/) || [""])[0];
+      const u = url.slice(0, url.length - trail.length);
+      return `${pre}<a href="${u}" target="_blank" rel="noopener">${u}</a>${trail}`;
+    })
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
-    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/~~([^~]+)~~/g, "<del>$1</del>");
 }
 
-// Block-level markdown: ATX headings (#..######), unordered (-, *) and ordered
-// (1.) lists, and paragraphs (consecutive lines joined with <br>). Small and
+// Block-level markdown: ATX headings, horizontal rules, blockquotes, pipe
+// tables, nested unordered/ordered lists, and paragraphs. Small and
 // dependency-free; fenced code + mermaid are handled by the caller.
+const TABLE_SEP = /^\s*\|?\s*:?-{1,}:?\s*(?:\|\s*:?-{1,}:?\s*)*\|?\s*$/;
+const cellSplit = (row) =>
+  row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+
 function renderBlocks(text) {
   const lines = text.split(/\r?\n/);
   let html = "";
-  let list = null; // 'ul' | 'ol' | null
-  let listDelim = null; // for 'ol': '.' or ')', so a "1)" sub-list doesn't merge with a "1." list
+  const stack = []; // open lists, innermost last: {type:'ul'|'ol', delim, indent}
   let para = [];
+  let quote = [];
+
   const flushPara = () => {
     if (para.length) {
       html += `<p>${para.map(renderInline).join("<br>")}</p>`;
       para = [];
     }
   };
-  const closeList = () => {
-    if (list) {
-      html += `</${list}>`;
-      list = null;
-      listDelim = null;
+  const flushQuote = () => {
+    if (quote.length) {
+      html += `<blockquote>${quote.map(renderInline).join("<br>")}</blockquote>`;
+      quote = [];
     }
   };
-  for (const raw of lines) {
-    const line = raw.replace(/\s+$/, "");
+  const flushText = () => {
+    flushPara();
+    flushQuote();
+  };
+  // Close every open list nested deeper than `indent` (−1 closes them all).
+  const closeLists = (indent = -1) => {
+    while (stack.length && stack[stack.length - 1].indent > indent) {
+      html += `</li></${stack.pop().type}>`;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].replace(/\s+$/, "");
     let m;
-    if (!line.trim()) {
-      flushPara();
-      closeList();
+
+    // Pipe table: a row immediately followed by a |---|:--:| separator row.
+    if (line.trim() && line.includes("|") && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1])) {
+      flushText();
+      closeLists();
+      const head = cellSplit(line);
+      let t = "<table><thead><tr>" + head.map((c) => `<th>${renderInline(c)}</th>`).join("") + "</tr></thead><tbody>";
+      i += 1; // consume the separator row
+      while (i + 1 < lines.length && lines[i + 1].includes("|") && lines[i + 1].trim()) {
+        const row = cellSplit(lines[(i += 1)]);
+        t += "<tr>" + head.map((_, j) => `<td>${renderInline(row[j] || "")}</td>`).join("") + "</tr>";
+      }
+      html += t + "</tbody></table>";
+    } else if (!line.trim()) {
+      flushText();
+      closeLists();
+    } else if ((m = line.match(/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/))) {
+      flushText();
+      closeLists();
+      html += "<hr>";
     } else if ((m = line.match(/^(#{1,6})\s+(.*)$/))) {
-      flushPara();
-      closeList();
+      flushText();
+      closeLists();
       html += `<h${m[1].length} class="md-h">${renderInline(m[2])}</h${m[1].length}>`;
-    } else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+    } else if ((m = line.match(/^\s*>\s?(.*)$/))) {
       flushPara();
-      if (list !== "ul") {
-        closeList();
-        html += "<ul>";
-        list = "ul";
+      closeLists();
+      quote.push(m[1]);
+    } else if (
+      (m = line.match(/^(\s*)([-*])\s+(.*)$/)) ||
+      (m = line.match(/^(\s*)(\d+)([.)])\s+(.*)$/))
+    ) {
+      flushText();
+      const indent = m[1].replace(/\t/g, "  ").length;
+      const ordered = /\d/.test(m[2]);
+      const type = ordered ? "ol" : "ul";
+      const delim = ordered ? m[3] : m[2];
+      const content = ordered ? m[4] : m[3];
+      const open = () => {
+        html += ordered ? `<ol start="${parseInt(m[2], 10) || 1}">` : "<ul>";
+        stack.push({ type, delim, indent });
+        html += "<li>";
+      };
+      closeLists(indent); // pop anything deeper than this item
+      const top = stack[stack.length - 1];
+      if (top && top.indent === indent) {
+        if (top.type === type && top.delim === delim) {
+          html += "</li><li>"; // sibling in the same list
+        } else {
+          // Same indent but a different marker ('.' vs ')', or ul vs ol) → a new
+          // list, so a "1)" sub-list doesn't keep counting from a "1." list.
+          html += `</li></${stack.pop().type}>`;
+          open();
+        }
+      } else {
+        open(); // deeper than the current item → nest inside its open <li>
       }
-      html += `<li>${renderInline(m[1])}</li>`;
-    } else if ((m = line.match(/^\s*(\d+)([.)])\s+(.*)$/))) {
-      flushPara();
-      // A change of delimiter starts a new list, so a "1)"-style sub-list nested
-      // under a "1."-style section heading doesn't merge into (and keep counting
-      // from) the outer list. Start each list at its source number so numbered
-      // headings separated by prose still count up (1. 2. 3.) instead of all
-      // restarting at 1.
-      if (list !== "ol" || listDelim !== m[2]) {
-        closeList();
-        html += `<ol start="${parseInt(m[1], 10) || 1}">`;
-        list = "ol";
-        listDelim = m[2];
-      }
-      html += `<li>${renderInline(m[3])}</li>`;
+      html += renderInline(content);
     } else {
-      closeList();
+      flushQuote();
+      closeLists();
       para.push(line);
     }
   }
-  flushPara();
-  closeList();
+  flushText();
+  closeLists();
   return html;
 }

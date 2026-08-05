@@ -7,10 +7,12 @@ import { t } from "./i18n.js";
 import { renderEmpty } from "./messages.js";
 import { applyModeTheme, setHeaderTitle } from "./mode.js";
 import { renderScope } from "./scope.js";
-import { loadConversations, newChat } from "./conversations.js";
+import { loadConversations, newChat, filterConversations } from "./conversations.js";
 import { send, autoGrow, stopGeneration } from "./composer.js";
 import { detectMention, updateMentions, closeMentions, pickMention } from "./mentions.js";
 import { exportConversation } from "./exportmd.js";
+import { openPalette } from "./palette.js";
+import { initSelectionAsk } from "./selection.js";
 
 // --- composer: auto-grow textarea, mentions, Enter to send ---
 let mentionTimer = null;
@@ -59,15 +61,16 @@ $("composer").addEventListener("submit", (e) => {
 });
 $("sb-new").onclick = newChat;
 $("export-btn").onclick = exportConversation;
+$("conv-search").addEventListener("input", (e) => filterConversations(e.target.value));
 
-// Ctrl/Cmd+K starts a fresh conversation from anywhere.
+// Ctrl/Cmd+K opens the command palette (search conversations + quick actions).
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
     e.preventDefault();
-    newChat();
-    $("input").focus();
+    openPalette();
   }
 });
+initSelectionAsk();
 
 // --- jump-to-latest button: shown when the user scrolls up off the bottom ---
 const scrollBtn = $("scroll-bottom");
@@ -84,9 +87,15 @@ $("sb-toggle").onclick = () => $("sidebar").classList.toggle("collapsed");
 const MOBILE = () => window.matchMedia("(max-width: 720px)").matches;
 if (MOBILE()) $("sidebar").classList.add("collapsed");
 $("sidebar-backdrop").onclick = () => $("sidebar").classList.add("collapsed");
-// Keep the sidebar visible again when growing back to desktop width.
+// On a width breakpoint crossing, collapse the drawer entering mobile and reveal
+// the sidebar entering desktop (only on the transition, so it doesn't fight the
+// user toggling it within a size class).
+let wasMobile = MOBILE();
 window.addEventListener("resize", () => {
-  if (!MOBILE()) $("sidebar").classList.remove("collapsed");
+  const m = MOBILE();
+  if (m === wasMobile) return;
+  wasMobile = m;
+  $("sidebar").classList.toggle("collapsed", m);
 });
 
 // --- Business ⇄ Technical mode toggle ---
@@ -122,6 +131,7 @@ function applyLang() {
   $("scroll-bottom").title = s.scrollBottom;
   $("export-btn").title = s.exportLabel;
   $("export-btn").setAttribute("aria-label", s.exportLabel);
+  $("conv-search").placeholder = s.searchPlaceholder;
   $("input").placeholder = s.placeholder;
   if (S.modeLocked) $("mode-toggle").title = s.modeLocked;
   renderEmpty();

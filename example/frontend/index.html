@@ -14,6 +14,10 @@
         <div class="chat-title"><img class="brand-mark" src="logo.svg" alt="" width="20" height="20" /> Athena</div>
         <button id="sb-new" class="btn primary sb-new" type="button">+ New chat</button>
       </div>
+      <div class="sidebar-search">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="conv-search" type="text" placeholder="Search conversations…" autocomplete="off" />
+      </div>
       <div id="conv-list" class="conv-list"></div>
     </aside>
     <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
@@ -46,7 +50,7 @@
 
       <div id="banner" class="chat-banner" hidden></div>
 
-      <main id="messages" class="messages">
+      <main id="messages" class="messages" role="log" aria-label="Conversation">
         <div id="empty" class="chat-empty">
           <h2>Understand how the product works</h2>
           <p>
@@ -70,6 +74,7 @@
           <textarea
             id="input"
             rows="1"
+            aria-label="Ask a question"
             placeholder="Ask anything…  /repo or /doc, @tool, #symbol to narrow scope · Enter to send"
           ></textarea>
           <div id="mention-list" class="mention-list" hidden></div>
@@ -89,6 +94,44 @@
         <div id="source-body" class="source-body"></div>
       </aside>
     </div>
+
+    <!-- Slide-over panel that shows a cited symbol's real source + callers/callees -->
+    <div id="code-panel" class="source-panel" hidden>
+      <div id="code-backdrop" class="source-backdrop"></div>
+      <aside class="source-sheet" role="dialog" aria-modal="true" aria-label="Source code">
+        <header class="source-sheet-head">
+          <div id="code-heading" class="source-heading"></div>
+          <button id="code-close" class="icon-btn" type="button" title="Close" aria-label="Close">✕</button>
+        </header>
+        <div id="code-body" class="source-body"></div>
+      </aside>
+    </div>
+
+    <!-- Command palette (Cmd/Ctrl+K): search conversations + quick actions -->
+    <div id="palette" class="palette" hidden>
+      <div id="palette-backdrop" class="palette-backdrop"></div>
+      <div class="palette-box" role="dialog" aria-modal="true" aria-label="Command palette">
+        <input id="palette-input" class="palette-input" type="text" autocomplete="off" />
+        <div id="palette-list" class="palette-list"></div>
+      </div>
+    </div>
+
+    <!-- Fullscreen viewer for large diagrams -->
+    <div id="lightbox" class="lightbox" hidden>
+      <div id="lightbox-backdrop" class="lightbox-backdrop"></div>
+      <div class="lightbox-toolbar">
+        <button id="lightbox-download" class="icon-btn" type="button" title="Download SVG" aria-label="Download SVG">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button id="lightbox-close" class="icon-btn" type="button" title="Close" aria-label="Close">✕</button>
+      </div>
+      <div id="lightbox-body" class="lightbox-body"></div>
+    </div>
+
+    <!-- Transient action feedback -->
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <!-- Screen-reader-only status announcements -->
+    <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
 
     <script type="module" src="js/main.js"></script>
   </body>

@@ -1,12 +1,16 @@
 // Conversation history sidebar: list, open, delete, rename, and New chat.
 // Talks to the backend's /api/conversations* endpoints.
-import { $, el, escapeHtml } from "./dom.js";
+import { $, el, escapeHtml, ICON_EDIT } from "./dom.js";
 import { S } from "./state.js";
 import { t } from "./i18n.js";
 import { apiGet } from "./api.js";
+import { fold } from "./mentions.js";
 import { addUser, addAssistant, clearMessages, hideEmpty, showEmpty } from "./messages.js";
 import { setMode, lockMode, unlockMode, setHeaderTitle } from "./mode.js";
 import { renderScope } from "./scope.js";
+
+let convCache = []; // last-loaded list, so search/group re-render without refetching
+let convQuery = ""; // current sidebar search text
 
 export async function loadConversations() {
   let list;
@@ -15,17 +19,62 @@ export async function loadConversations() {
   } catch {
     return; // sidebar is best-effort; a failure shouldn't break the chat
   }
-  renderConvList(list);
+  convCache = list;
+  renderConvList();
 }
 
-function renderConvList(list) {
+// Filter the sidebar as the user types in the search box (diacritic-insensitive).
+export function filterConversations(q) {
+  convQuery = q || "";
+  renderConvList();
+}
+
+// The last-loaded conversation list (used by the command palette).
+export function getConvCache() {
+  return convCache;
+}
+
+// Which date header a conversation falls under, from its updated_at (epoch secs).
+function dateBucket(ts) {
+  const g = t().group;
+  const midnight = new Date().setHours(0, 0, 0, 0) / 1000;
+  if (ts >= midnight) return g.today;
+  if (ts >= midnight - 86400) return g.yesterday;
+  if (ts >= midnight - 7 * 86400) return g.week;
+  return g.older;
+}
+
+function renderConvList() {
   const box = $("conv-list");
+  // Don't blow away an in-progress inline rename (a background refresh — e.g. from
+  // opening the conversation — must not wipe the input the user is typing in).
+  if (box.querySelector(".conv-rename")) return;
   box.innerHTML = "";
-  if (!list.length) {
+  if (!convCache.length) {
     box.append(el("div", "conv-empty", escapeHtml(t().noConversations)));
     return;
   }
-  list.forEach((c) => box.append(convItem(c)));
+  const q = fold(convQuery.trim());
+  const list = q
+    ? convCache.filter((c) => fold(c.title).includes(q) || fold(c.preview || "").includes(q))
+    : convCache;
+  if (!list.length) {
+    box.append(el("div", "conv-empty", escapeHtml(t().noResults)));
+    return;
+  }
+  // Group by date (skipped while searching — matches span dates). The list is
+  // already newest-first from the API, so a bucket only ever opens once.
+  let lastGroup = null;
+  list.forEach((c) => {
+    if (!q) {
+      const g = dateBucket(c.updated_at || 0);
+      if (g !== lastGroup) {
+        box.append(el("div", "conv-group", escapeHtml(g)));
+        lastGroup = g;
+      }
+    }
+    box.append(convItem(c));
+  });
 }
 
 function convItem(c) {
@@ -35,11 +84,19 @@ function convItem(c) {
   const title = el("div", "conv-title", escapeHtml(c.title));
   title.ondblclick = (e) => {
     e.stopPropagation();
-    renameConversation(c.id, c.title);
+    startRename(item, title, c);
   };
   main.append(title);
   if (c.preview) main.append(el("div", "conv-preview", escapeHtml(c.preview)));
   item.append(main);
+  const actions = el("div", "conv-actions");
+  const ren = el("button", "conv-ren", ICON_EDIT);
+  ren.type = "button";
+  ren.title = t().editLabel;
+  ren.onclick = (e) => {
+    e.stopPropagation(); // rename in place, don't open the conversation
+    startRename(item, title, c);
+  };
   const del = el("button", "conv-del", "×");
   del.type = "button";
   del.title = t().deleteLabel;
@@ -47,12 +104,55 @@ function convItem(c) {
     e.stopPropagation();
     deleteConversation(c.id);
   };
-  item.append(del);
+  actions.append(ren, del);
+  item.append(actions);
   item.onclick = () => openConversation(c.id);
   return item;
 }
 
-async function openConversation(id) {
+// Inline rename: swap the title for an input (double-click), save on Enter/blur,
+// cancel on Escape — replaces the old blocking prompt().
+function startRename(item, titleEl, c) {
+  if (item.querySelector(".conv-rename")) return;
+  const input = el("input", "conv-rename");
+  input.value = c.title;
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    const val = input.value.trim();
+    input.replaceWith(titleEl); // drop the input first, or the re-render guard blocks the refresh
+    if (save && val && val !== c.title) {
+      try {
+        await fetch("/api/conversations/" + c.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: val }),
+        });
+      } catch {
+        /* best-effort */
+      }
+      if (c.id === S.conversationId) setHeaderTitle(val);
+    }
+    loadConversations();
+  };
+  input.onclick = (e) => e.stopPropagation(); // don't open the conversation while editing
+  input.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      finish(false);
+    }
+  };
+  input.onblur = () => finish(true);
+}
+
+export async function openConversation(id) {
   if (S.busy || id === S.conversationId) return;
   let conv;
   try {
@@ -96,22 +196,6 @@ async function deleteConversation(id) {
     return;
   }
   if (id === S.conversationId) newChat();
-  loadConversations();
-}
-
-async function renameConversation(id, current) {
-  const title = prompt(t().renamePrompt, current);
-  if (title == null || !title.trim()) return;
-  try {
-    await fetch("/api/conversations/" + id, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title.trim() }),
-    });
-  } catch {
-    return;
-  }
-  if (id === S.conversationId) setHeaderTitle(title.trim());
   loadConversations();
 }
 

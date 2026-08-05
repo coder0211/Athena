@@ -236,14 +236,17 @@ def add_message(
 
 
 def delete_last_assistant(conversation_id: str) -> None:
-    """Drop the most recent assistant message (used when regenerating an answer)."""
+    """Drop the answer only if it's the most recent turn (used when regenerating).
+    If the last turn is a user message — e.g. the previous attempt errored before
+    an answer was saved — this deletes nothing, so a retry can't wipe an earlier
+    good answer sitting further back in the conversation."""
     with _write_lock, _connect() as conn:
         row = conn.execute(
-            "SELECT id FROM messages WHERE conversation_id = ? AND role = 'assistant'"
+            "SELECT id, role FROM messages WHERE conversation_id = ?"
             " ORDER BY created_at DESC LIMIT 1",
             (conversation_id,),
         ).fetchone()
-        if row:
+        if row and row["role"] == "assistant":
             conn.execute("DELETE FROM messages WHERE id = ?", (row["id"],))
 
 

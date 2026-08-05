@@ -3,6 +3,7 @@
 import { $ } from "./dom.js";
 import { S } from "./state.js";
 import { t } from "./i18n.js";
+import { showToast } from "./toast.js";
 
 function conversationMarkdown() {
   const title = $("header-title")?.textContent?.trim() || t().newChat;
@@ -38,4 +39,5 @@ export function exportConversation() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(t().exportedToast);
 }

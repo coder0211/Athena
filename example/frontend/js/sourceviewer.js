@@ -7,6 +7,7 @@ import { t } from "./i18n.js";
 import { apiGet } from "./api.js";
 
 let wired = false;
+let lastFocus = null; // element focused before the panel opened, to restore on close
 
 function wire() {
   if (wired) return;
@@ -21,6 +22,8 @@ function wire() {
 export function close() {
   $("source-panel").hidden = true;
   document.body.classList.remove("panel-open");
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  lastFocus = null;
 }
 
 // Open the passage for a source ({id, document, path, title, locator}).
@@ -35,8 +38,10 @@ export async function openSource(src) {
     `<div class="source-doc">${escapeHtml(doc)}</div>` +
     (sec ? `<div class="source-sec">${escapeHtml(sec)}</div>` : "");
   body.innerHTML = `<div class="source-loading">${escapeHtml(t().sourceLoading)}</div>`;
+  lastFocus = document.activeElement; // remember where focus was, to restore on close
   panel.hidden = false;
   document.body.classList.add("panel-open");
+  $("source-close").focus();
 
   if (!src.id) {
     body.innerHTML = `<div class="source-error">${escapeHtml(t().sourceError)}</div>`;

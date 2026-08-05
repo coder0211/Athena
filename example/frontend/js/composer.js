@@ -6,19 +6,24 @@ import { t } from "./i18n.js";
 import { formatAnswer } from "./markdown.js";
 import { renderMermaid } from "./mermaid.js";
 import { enhanceCodeBlocks } from "./codeblocks.js";
+import { enhanceCodeRefs } from "./codeviewer.js";
 import { createTrace } from "./trace.js";
 import {
   addUser,
   addTyping,
+  setTypingStatus,
   addAssistant,
   buildFooter,
   pruneRegen,
   renderFollowups,
   pruneFollowups,
+  refineRow,
+  pruneRefine,
   hideEmpty,
 } from "./messages.js";
 import { lockMode, setHeaderTitle } from "./mode.js";
 import { loadConversations } from "./conversations.js";
+import { announce } from "./toast.js";
 
 export function autoGrow() {
   const ta = $("input");
@@ -71,6 +76,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
   const ctrl = new AbortController();
   S.abort = ctrl;
   setBusy(true);
+  announce(t().status.thinking); // tell assistive tech an answer is being generated
   const typing = addTyping();
   let row = null;
   let bubble = null;
@@ -138,7 +144,9 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
     }
   };
 
-  try {
+  // One streaming attempt: opens the SSE stream and drains it into handle().
+  // Resolves when the stream ends; throws on a network/HTTP failure.
+  const streamOnce = async (regen) => {
     const res = await fetch("/api/ask/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -148,13 +156,12 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
         scope,
         mode: S.mode,
         lang: S.lang,
-        regenerate,
+        regenerate: regen,
         edit,
       }),
       signal: ctrl.signal,
     });
-    if (!res.ok || !res.body) throw new Error(res.statusText || "stream failed");
-
+    if (!res.ok || !res.body) throw new Error(res.statusText || `HTTP ${res.status}`);
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
@@ -174,37 +181,74 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
         }
       }
     }
+  };
 
-    stopRender(); // finalizeAnswer does the final full render below
-    typing.remove();
-    if (unavailable) {
-      row?.remove();
-      trace?.node.remove();
-      addAssistant(unavailable, null, true);
-    } else if (!row) {
-      trace?.node.remove();
-      addAssistant(t().errorPrefix + (streamError || "empty response"), null, true);
-    } else {
+  // Transient network blips shouldn't drop the turn. Retry (with backoff) only
+  // while NOTHING has streamed yet — once tokens/tools have arrived a retry would
+  // duplicate them, so a mid-answer drop instead keeps the partial (below). On a
+  // retry we force regenerate so the server rewrites this turn instead of
+  // appending a duplicate user message.
+  const MAX_RETRIES = 2;
+  let streamFailed = null;
+  let regen = regenerate;
+  try {
+   for (let attempt = 0; ; attempt++) {
+    try {
+      await streamOnce(regen);
+      streamFailed = null;
+      break;
+    } catch (e) {
+      if (ctrl.signal.aborted) {
+        streamFailed = "abort";
+        break;
+      }
+      const nothingYet = acc.length === 0 && steps.length === 0;
+      if (nothingYet && attempt < MAX_RETRIES) {
+        setTypingStatus(typing, t().reconnecting);
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        if (ctrl.signal.aborted) {
+          streamFailed = "abort";
+          break;
+        }
+        if (S.conversationId) regen = true; // turn already exists server-side
+        continue;
+      }
+      streamFailed = e;
+      break;
+    }
+  }
+
+  stopRender();
+  typing.remove();
+  if (streamFailed === "abort") {
+    // A user-initiated stop keeps whatever streamed so far.
+    if (row) {
       trace?.finalize(steps);
       finalizeAnswer(row, bubble, acc, steps, sources, followups);
-    }
-  } catch (e) {
-    stopRender();
-    typing.remove();
-    // A user-initiated stop (AbortError) keeps whatever streamed so far instead
-    // of dropping it as an error; a genuine failure still surfaces.
-    if (ctrl.signal.aborted) {
-      if (row) {
-        trace?.finalize(steps);
-        finalizeAnswer(row, bubble, acc, steps, sources, followups);
-      } else {
-        trace?.node.remove();
-      }
     } else {
-      row?.remove();
       trace?.node.remove();
-      addAssistant(t().errorPrefix + e.message, null, true);
     }
+  } else if (streamFailed) {
+    // Network failure: keep a partial answer if one streamed (Regenerate can
+    // re-run it); otherwise show an error bubble with Retry.
+    if (row) {
+      trace?.finalize(steps);
+      finalizeAnswer(row, bubble, acc, steps, sources, followups);
+    } else {
+      trace?.node.remove();
+      addAssistant(t().errorPrefix + (streamFailed.message || streamFailed), null, true);
+    }
+  } else if (unavailable) {
+    row?.remove();
+    trace?.node.remove();
+    addAssistant(unavailable, null, true);
+  } else if (!row) {
+    trace?.node.remove();
+    addAssistant(t().errorPrefix + (streamError || "empty response"), null, true);
+  } else {
+    trace?.finalize(steps);
+    finalizeAnswer(row, bubble, acc, steps, sources, followups);
+  }
   } finally {
     S.abort = null;
     setBusy(false);
@@ -216,12 +260,16 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
 // and any follow-up suggestions, then record it in history.
 function finalizeAnswer(row, bubble, acc, steps, sources, followups) {
   bubble.innerHTML = formatAnswer(acc); // final render
+  announce(acc); // read the finished answer to assistive tech (once, not per token)
   enhanceCodeBlocks(bubble); // add copy buttons to fenced code blocks
+  enhanceCodeRefs(bubble); // make cited symbols open the code panel
   renderMermaid(bubble); // draw any mermaid diagrams (streaming showed source)
   row.append(buildFooter(acc, steps, sources));
+  row.append(refineRow());
   const fu = renderFollowups(followups);
   if (fu) row.append(fu);
   pruneRegen();
+  pruneRefine();
   pruneFollowups();
   S.history.push({ role: "assistant", content: acc });
   loadConversations(); // refresh title/preview/count in the sidebar
