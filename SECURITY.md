@@ -21,6 +21,10 @@ committed (it is gitignored). When contributing:
 
 - Never commit `.env`, real API keys, or any file under `.sources/` or
   `.knowledge/`.
+- The runtime config in `config/` is gitignored — never commit
+  `config/mcp_servers.json` (it can hold provider tokens in `env`/`headers`) or
+  the other `config/*.yaml` runtime files. Only the `config/*.example.*` templates
+  are tracked.
 - Never hardcode absolute machine paths or credentials in tracked files
   (e.g. `.mcp.json`, source code).
 

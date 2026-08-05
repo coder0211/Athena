@@ -14,36 +14,48 @@ Athena ingests your Git repositories — and, optionally, your product documents
 edges, concept communities), and serves it over one shared query engine: a
 **management dashboard**, a **chat app** with saved history, an **HTTP API**, and
 an **MCP server**. The natural-language Q&A reads the _real_ source code — and the
-docs you upload — and explains it, for business stakeholders and developers alike.
+docs you upload — and explains it for whatever audience you need, from business
+stakeholders to developers (and any custom "type" you define).
 
 ---
 
 ## Highlights
 
 - **Ask in plain language** — the Q&A agent plans, searches the graph, reads the
-  actual code, and explains a flow step by step. It cites where things live.
+  actual source (and your docs), and explains a flow step by step — citing where
+  each thing lives.
+- **See how it got there** — a live **investigation trace** shows every tool the
+  agent ran and the file/symbol it read, so claims are traceable; it collapses to a
+  one-line "Looked at N steps" you can expand.
 - **Answer types you can extend** — built-in **Business** (non-technical, no jargon)
-  and **Technical** (call paths, files, snippets) types, plus your own (Sales,
-  Marketing, Support, …): describe the reader in plain language and Athena writes
-  the instruction for you. Pick a type per chat.
-- **Streaming answers** — responses stream in token by token, with live status
-  ("Searching the code…", "Reading the source…") as the agent investigates.
-- **Built for reading** — Markdown + syntax-highlighted code blocks, rendered
-  Mermaid diagrams for flows, copy and regenerate on every answer, and
-  English / Tiếng Việt UI + response language.
-- **Saved history** — conversations persist server-side (SQLite); a sidebar lets
-  you revisit, rename, and delete past chats.
-- **Scoped questions** — type `@repo` to focus on one app or `#symbol` to focus
-  on a specific feature/screen.
-- **Bring your own docs** — upload specs, PDFs, or spreadsheets from the dashboard.
-  They're chunked, embedded, made searchable in chat, and automatically linked to
-  the code symbols they mention — no full rebuild required.
-- **Structured access too** — the same graph powers a REST API and an MCP server
-  for editors and agents.
+  and **Technical** (call paths, files, snippets), plus your own (Sales, Marketing,
+  Support, …): describe the reader and Athena writes the instruction, greeting,
+  starter questions, and one-tap refine buttons — all editable. Pick a type per chat.
+- **Streaming, with next steps** — answers stream token by token with live status;
+  each one offers **suggested follow-ups**, per-type **one-tap refinements**,
+  regenerate, and edit-&-resend.
+- **Jump into the code** — click a cited `path:line` or symbol to open its **real
+  source** with callers/callees; click a document citation to read the exact passage.
+- **Scope any question** — narrow with `/repo` or `/document`, `@tool` (a connected
+  MCP tool), or `#symbol` (a specific feature/screen).
+- **Bring your own docs** — upload specs, PDFs, or spreadsheets; they're chunked,
+  embedded, searchable in chat, and automatically linked to the code symbols they
+  mention — no full rebuild required.
+- **Connect third-party tools** — register external **MCP servers** and let the
+  agent call their tools mid-answer.
+- **Built for reading** — Markdown + syntax-highlighted code, rendered **Mermaid**
+  diagrams (with fullscreen zoom), copy / **export to Markdown**, a `⌘/Ctrl-K`
+  command palette, and English / Tiếng Việt UI + response language.
+- **Management dashboard** — add repos, build the graph, describe repos and their
+  **relations** (so cross-repo questions work), upload documents, and browse the graph.
+- **Saved history** — conversations persist server-side (SQLite); a sidebar lets you
+  revisit, rename, and delete past chats.
+- **Structured access too** — the same graph powers a **REST API** and an **MCP
+  server** for editors and agents.
 
 ## Architecture
 
-```
+```text
 repos (config/sources.yaml)
    └─ L0 fetch         git clone → .sources/
       └─ L1 CodeGraph  multi-lang AST → structure           (npm: codegraph)
@@ -150,6 +162,7 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | `ATHENA_ASK_MODEL`           | `gpt-4.1-nano`          | Any tool-capable model on your provider.                                  |
 | `ATHENA_EMBED_MODEL`         | `text-embedding-3-small`| Embedding model for document search (falls back to BM25 if no API key).   |
 | `ATHENA_GRAPH`               | `.knowledge/graph.json` | Path to the built graph.                                                  |
+| `ATHENA_PERSONAS`            | `config/personas.yaml`  | Path to custom answer types (personas).                                   |
 | `ATHENA_TEMPERATURE`         | `0.3`                   | Q&A sampling temperature; `none` to omit (reasoning models).              |
 | `ATHENA_MAX_TOKENS`          | `2048`                  | Max tokens for a Q&A answer.                                              |
 | `ATHENA_TOKENS_PARAM`        | `max_tokens`            | Token-limit param name (`max_completion_tokens` for o-series/gpt-5).      |
@@ -161,6 +174,19 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | `ATHENA_IMPACT_DEPTH`        | `10`                    | Default hops for impact / blast-radius.                                   |
 | `ATHENA_PATH_MAX_LEN`        | `20`                    | Default max hops for shortest-path search.                                |
 | `ATHENA_MCP_ALLOW_STDIO`     | `1`                     | Allow local (stdio) MCP servers; `0` = remote http servers only.          |
+
+## Answer types
+
+Every answer is written for a **type** — an audience with its own voice and answer
+shape. Two ship built in: **Business** (a plain-language product story) and
+**Technical** (a precise code walkthrough). Add your own from the chat UI's type
+picker → **Create new type**: describe the reader in one line and Athena generates
+the instruction, a greeting, starter questions, and one-tap refine buttons — all
+editable before you save. The shared investigation rigor, completeness bar, and
+diagram rules wrap every type automatically, so a new type only defines its voice
+and structure. Custom types persist to `config/personas.yaml` (see
+[`config/personas.example.yaml`](config/personas.example.yaml)) and are served over
+the `/api/personas` endpoints, so an editor or agent can manage them too.
 
 ## HTTP API
 
@@ -209,15 +235,18 @@ q.impact("cg:<repo>:class:<hash>", depth=2)      # change blast radius
 
 ## Project layout
 
-```
+```text
+config/                system config — sources/workspace/docs/personas .yaml +
+                       mcp_servers.json (runtime files gitignored; *.example.* tracked)
 src/
   main.py              pipeline CLI (fetch | build | all)
-  config.py            env + paths
+  config.py            env + paths (config/ dir lives here)
   extractors/          L1 CodeGraph + L4 Graphify adapters
   graph/               merge, schema, NetworkX store
   query/
     engine.py          GraphQuery — the shared query surface
     ask.py             natural-language Q&A (agentic, streaming)
+    personas.py        answer "types" (personas) — registry + generator
     server.py          MCP server
   api/app.py           FastAPI HTTP API + management dashboard host (:8000)
 dashboard/             management web UI — repos, workspace, build (served by the API)

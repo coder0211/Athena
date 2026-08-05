@@ -7,7 +7,7 @@ can drop into your own system.
 
 ## Architecture
 
-```
+```text
 repos (config/sources.yaml)
    └─ L0 fetch         git clone → .sources/
       └─ L1 CodeGraph  multi-language AST → structure         (npm: codegraph)
