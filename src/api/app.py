@@ -145,6 +145,7 @@ class PersonaIn(BaseModel):
     greeting: str = ""
     suggestions: list[str] = []
     followup_voice: str = ""
+    refinements: list = []  # [{label, prompt}] one-tap "refine the answer" buttons
 
 
 class PersonaGenerateIn(BaseModel):

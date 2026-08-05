@@ -173,10 +173,44 @@ function openPersonaModal(persona) {
   $("persona-name").value = persona ? persona.label : "";
   $("persona-desc").value = persona ? persona.description || "" : "";
   $("persona-instruction").value = persona ? persona.instruction || "" : "";
+  renderRefines(persona ? persona.refinements : []);
   $("persona-delete").hidden = !persona; // only custom types are editable/deletable
   setError("");
   $("persona-modal").hidden = false;
   $("persona-name").focus();
+}
+
+// --- refine-button editor (each persona's own one-tap "refine the answer" set) ---
+function refineEditorRow(item) {
+  const s = t().persona;
+  const row = el("div", "persona-refine-row");
+  const label = el("input", "persona-refine-label-in");
+  label.type = "text";
+  label.value = (item && item.label) || "";
+  label.placeholder = s.refineLabelPh;
+  const prompt = el("input", "persona-refine-prompt-in");
+  prompt.type = "text";
+  prompt.value = (item && item.prompt) || "";
+  prompt.placeholder = s.refinePromptPh;
+  const del = el("button", "persona-refine-del", "✕");
+  del.type = "button";
+  del.title = s.delete;
+  del.onclick = () => row.remove();
+  row.append(label, prompt, del);
+  return row;
+}
+function renderRefines(list) {
+  const box = $("persona-refines");
+  box.innerHTML = "";
+  (list || []).forEach((it) => box.append(refineEditorRow(it)));
+}
+function collectRefines() {
+  return [...$("persona-refines").querySelectorAll(".persona-refine-row")]
+    .map((r) => ({
+      label: r.querySelector(".persona-refine-label-in").value.trim(),
+      prompt: r.querySelector(".persona-refine-prompt-in").value.trim(),
+    }))
+    .filter((x) => x.label && x.prompt);
 }
 
 function closePersonaModal() {
@@ -211,6 +245,7 @@ async function generateInstruction() {
     if (draft.label && !$("persona-name").value.trim()) $("persona-name").value = draft.label;
     if (draft.instruction) $("persona-instruction").value = draft.instruction;
     if (draft.description) $("persona-desc").value = draft.description;
+    if (draft.refinements && draft.refinements.length) renderRefines(draft.refinements);
   } catch (err) {
     setError((err && err.message) || s.genFailed);
   } finally {
@@ -237,6 +272,7 @@ async function savePersona() {
       greeting: (lastDraft && lastDraft.greeting) || "",
       suggestions: (lastDraft && lastDraft.suggestions) || [],
       followup_voice: (lastDraft && lastDraft.followup_voice) || "",
+      refinements: collectRefines(),
     });
     await loadPersonas();
     closePersonaModal();
@@ -281,6 +317,8 @@ function wirePersonaModal() {
   $("persona-cancel").onclick = closePersonaModal;
   $("persona-close").onclick = closePersonaModal;
   $("persona-backdrop").onclick = closePersonaModal;
+  $("persona-refine-add").onclick = () =>
+    $("persona-refines").append(refineEditorRow({ label: "", prompt: "" }));
   applyPersonaI18n();
 }
 
@@ -296,6 +334,9 @@ export function applyPersonaI18n() {
   $("persona-instruction-label").textContent = s.instruction;
   $("persona-instruction-hint").textContent = s.instructionHint;
   $("persona-instruction").placeholder = s.instructionPlaceholder;
+  $("persona-refine-label").textContent = s.refineLabel;
+  $("persona-refine-hint").textContent = s.refineHint;
+  $("persona-refine-add").textContent = s.refineAdd;
   $("persona-cancel").textContent = s.cancel;
   $("persona-save").textContent = s.save;
   $("persona-delete").textContent = s.delete;

@@ -1295,6 +1295,57 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
 }
+.persona-refines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.persona-refine-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+/* Scoped under the row so these beat the generic `.persona-field input { width:100% }`. */
+.persona-refine-row .persona-refine-label-in {
+  flex: none;
+  width: 150px;
+}
+.persona-refine-row .persona-refine-prompt-in {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+.persona-refine-del {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.persona-refine-del:hover {
+  border-color: rgba(239, 83, 80, 0.5);
+  color: #ef5350;
+}
+.persona-refine-add {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 5px 10px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--mode-send, var(--accent));
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.persona-refine-add:hover {
+  background: var(--panel-2);
+}
 .persona-generate {
   align-self: flex-start;
   display: inline-flex;

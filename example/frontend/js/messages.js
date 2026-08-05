@@ -244,18 +244,30 @@ export function refineRow() {
   const s = t().refine;
   const row = el("div", "refine-row");
   row.append(el("span", "refine-label", escapeHtml(s.label)));
-  [
-    ["shorter", s.shorter],
-    ["simpler", s.simpler],
-    ["deeper", s.deeper],
-    ["example", s.example],
-  ].forEach(([key, label]) => {
+  // Each persona brings its own refine buttons; personas without them (built-ins,
+  // or customs made before the feature) fall back to the localized default set.
+  const persona = (S.PERSONAS || []).find((p) => p.id === S.mode);
+  const items =
+    persona && persona.refinements && persona.refinements.length ? persona.refinements : defaultRefines();
+  items.forEach(({ label, prompt }) => {
+    if (!label || !prompt) return;
     const chip = el("button", "refine-chip", escapeHtml(label));
     chip.type = "button";
-    chip.onclick = () => send(t().refinePrompt[key]);
+    chip.onclick = () => send(prompt);
     row.append(chip);
   });
   return row;
+}
+
+// The built-in refine set, localized — used when a persona defines none of its own.
+export function defaultRefines() {
+  const s = t();
+  return [
+    { label: s.refine.shorter, prompt: s.refinePrompt.shorter },
+    { label: s.refine.simpler, prompt: s.refinePrompt.simpler },
+    { label: s.refine.deeper, prompt: s.refinePrompt.deeper },
+    { label: s.refine.example, prompt: s.refinePrompt.example },
+  ];
 }
 
 // Keep the refine row only on the most recent answer.

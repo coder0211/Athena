@@ -274,6 +274,17 @@ def _clean(entry: dict) -> dict:
         v = entry.get(k)
         if isinstance(v, list):
             out[k] = [str(x).strip() for x in v if str(x).strip()][:6]
+    # refinements: one-tap "refine this answer" buttons — [{label, prompt}]
+    ref = entry.get("refinements")
+    if isinstance(ref, list):
+        cleaned = []
+        for r in ref:
+            if isinstance(r, dict):
+                label = str(r.get("label", "")).strip()
+                prompt = str(r.get("prompt", "")).strip()
+                if label and prompt:
+                    cleaned.append({"label": label, "prompt": prompt})
+        out["refinements"] = cleaned[:6]
     return out
 
 
@@ -407,8 +418,14 @@ _GEN_SYSTEM = (
     "each under ~12 words.\n"
     '- "followup_voice": one sentence telling how to phrase follow-up questions for this '
     "reader.\n"
-    "Write label/description/instruction/greeting/suggestions in the SAME LANGUAGE as the "
-    "user's description. Keep the instruction tight and high-signal — no boilerplate."
+    '- "refinements": 3–4 one-tap "refine the answer" buttons tailored to this reader, '
+    'each an object {"label": 1–3 word button text, "prompt": a first-person instruction '
+    "telling Athena how to rewrite its previous answer for that refinement (e.g. make it "
+    "shorter, add a concrete example, more persuasive, add pricing)}. Make them specific to "
+    "what THIS reader would want to tweak.\n"
+    "Write label/description/instruction/greeting/suggestions/refinements in the SAME "
+    "LANGUAGE as the user's description. Keep the instruction tight and high-signal — no "
+    "boilerplate."
 )
 
 
