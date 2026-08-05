@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import json
 
-from config import PROJECT_ROOT
+from config import CONFIG_DIR
 
-MCP_PATH = PROJECT_ROOT / "mcp_servers.json"
+MCP_PATH = CONFIG_DIR / "mcp_servers.json"
 
 TRANSPORTS = ["stdio", "http"]
 
@@ -83,6 +83,7 @@ def save_mcp(data: dict) -> None:
         if not s.get("enabled", True):
             entry["disabled"] = True
         out[name] = entry
+    MCP_PATH.parent.mkdir(parents=True, exist_ok=True)
     MCP_PATH.write_text(
         json.dumps({"mcpServers": out}, indent=2, ensure_ascii=False) + "\n"
     )

@@ -302,6 +302,7 @@ def _load_store() -> list[dict]:
 
 
 def _save_store(customs: list[dict]) -> None:
+    config.ensure_config_dir()
     config.personas_path().write_text(
         yaml.safe_dump({"personas": customs}, sort_keys=False, allow_unicode=True)
     )

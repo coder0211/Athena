@@ -9,7 +9,7 @@ from tqdm import tqdm
 # Project root (Athena/), resolved from this file's location so the config
 # is found regardless of the current working directory.
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_SOURCES_PATH = PROJECT_ROOT / "sources.yaml"
+DEFAULT_SOURCES_PATH = PROJECT_ROOT / "config" / "sources.yaml"
 DEFAULT_SOURCES_FOLDER = PROJECT_ROOT / ".sources"
 
 

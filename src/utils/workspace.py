@@ -12,9 +12,9 @@ from pathlib import Path
 
 import yaml
 
-from config import PROJECT_ROOT
+from config import CONFIG_DIR
 
-WORKSPACE_PATH = PROJECT_ROOT / "workspace.yaml"
+WORKSPACE_PATH = CONFIG_DIR / "workspace.yaml"
 
 # Controlled vocabularies (kept small + extensible; the UI offers these).
 RELATION_TYPES = [
@@ -49,6 +49,7 @@ def save_workspace(data: dict) -> None:
         "docs": data.get("docs", {}) or {},
         "relations": data.get("relations", []) or [],
     }
+    WORKSPACE_PATH.parent.mkdir(parents=True, exist_ok=True)
     WORKSPACE_PATH.write_text(
         yaml.safe_dump(clean, sort_keys=False, allow_unicode=True)
     )

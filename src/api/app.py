@@ -175,6 +175,7 @@ def get_sources(offset: int = 0, limit: int | None = None) -> dict:
 
 @app.put("/api/sources")
 def put_sources(sources: Sources) -> dict:
+    DEFAULT_SOURCES_PATH.parent.mkdir(parents=True, exist_ok=True)
     DEFAULT_SOURCES_PATH.write_text(
         yaml.safe_dump(sources.model_dump(), sort_keys=False)
     )
@@ -271,6 +272,7 @@ def put_mcp_config(body: McpRaw) -> dict:
     if not isinstance(data, dict) or not isinstance(data.get("mcpServers", {}), dict):
         raise HTTPException(400, 'Expected an object with an "mcpServers" object.')
     text = body.content if body.content.endswith("\n") else body.content + "\n"
+    MCP_PATH.parent.mkdir(parents=True, exist_ok=True)
     MCP_PATH.write_text(text)
     return {"ok": True, "servers": len(data.get("mcpServers") or {})}
 

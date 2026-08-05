@@ -9,7 +9,13 @@ venv/
 *.pyc
 .git/
 .env
-sources.yaml
+# Runtime config is bind-mounted from ./config, not baked into the image
+# (the example.* templates stay, so a fresh image still ships the samples).
+config/sources.yaml
+config/workspace.yaml
+config/docs.yaml
+config/personas.yaml
+config/mcp_servers.json
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/

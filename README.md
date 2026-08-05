@@ -44,7 +44,7 @@ docs you upload — and explains it, for business stakeholders and developers al
 ## Architecture
 
 ```
-repos (sources.yaml)
+repos (config/sources.yaml)
    └─ L0 fetch         git clone → .sources/
       └─ L1 CodeGraph  multi-lang AST → structure           (npm: codegraph)
          └─ L4 Graphify cluster bridge → concept communities (pip: graphifyy)
@@ -53,7 +53,7 @@ repos (sources.yaml)
                                  ├─ HTTP API      (src/api/app.py, OpenAI Q&A)
                                  └─ NL Q&A        (src/query/ask.py)
 
-documents (uploads / docs.yaml)
+documents (uploads / config/docs.yaml)
    └─ L2 docs ingest   docx·pdf·csv·xls → passages, embedded, linked to code
                        (merged into the same graph; incremental reindex, no rebuild)
 
@@ -79,7 +79,7 @@ pip install -r requirements.txt
 npm i -g @colbymchenry/codegraph        # L1 extractor (needs Node 22.5+)
 
 # 2. Point Athena at your repos
-#    edit sources.yaml  (see example.sources.yaml)
+#    edit config/sources.yaml  (see config/sources.example.yaml)
 
 # 3. Build the knowledge graph  (fetch + extract + merge)
 python src/main.py all                  # or: fetch | build
@@ -107,15 +107,12 @@ services from the one image: the **dashboard + API on 8000** and the **chat app
 on 8100**. Requires Docker with Compose v2.
 
 ```bash
-# 1. Config + files the container mounts from the host.
-#    Create these *before* the first run — otherwise Docker creates the
-#    bind-mounted files as empty directories.
-cp example.env .env                       # then set OPENAI_API_KEY
-cp example.sources.yaml sources.yaml      # your repos (editable later from the UI)
-touch workspace.yaml                      # pipeline state (starts empty)
-touch personas.yaml                       # custom answer types (starts empty; add them in chat)
-echo '{"mcpServers": {}}' > mcp_servers.json   # MCP servers (editable from the MCP tab)
-mkdir -p .sources .knowledge              # cloned repos + built graph, persisted to host
+# 1. Config the container mounts from the host. Compose mounts the whole config/
+#    folder, so you only need your repo list — everything else (workspace, MCP,
+#    personas) is created there at runtime.
+cp example.env .env                                     # then set OPENAI_API_KEY
+cp config/sources.example.yaml config/sources.yaml      # your repos (editable later from the UI)
+mkdir -p config .sources .knowledge                     # config + cloned repos + built graph
 
 # 2. Build the image and start both services.
 docker compose up --build                 # dashboard :8000 · chat :8100/chat  (Ctrl-C to stop)
@@ -130,7 +127,7 @@ Notes:
 
 - **Private repos over SSH** — Compose mounts `~/.ssh` read-only so the container
   can clone `git@…` remotes with your keys.
-- **Persistence** — `sources.yaml`, `workspace.yaml`, `.sources/`, and
+- **Persistence** — the `config/` folder, `.sources/`, and
   `.knowledge/` are bind-mounted, so your config and the built graph survive
   `docker compose down` and rebuilds. Chat history lives on the `chat-data`
   volume (SQLite), so conversations survive restarts too.
@@ -170,7 +167,7 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | Method  | Path                                    | Purpose                                      |
 | ------- | --------------------------------------- | -------------------------------------------- |
 | GET     | `/api/status`                           | graph stats, repos, whether Q&A is available |
-| GET/PUT | `/api/sources`                          | read / write `sources.yaml`                  |
+| GET/PUT | `/api/sources`                          | read / write `config/sources.yaml`           |
 | POST    | `/api/fetch` · `/api/build`             | start pipeline jobs → `{job_id}`             |
 | GET     | `/api/jobs/{id}`                        | job status (`running`/`succeeded`/`failed`)  |
 | GET     | `/api/search?q=&repo=&type=`            | symbol search                                |

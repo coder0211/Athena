@@ -8,7 +8,7 @@ can drop into your own system.
 ## Architecture
 
 ```
-repos (sources.yaml)
+repos (config/sources.yaml)
    └─ L0 fetch         git clone → .sources/
       └─ L1 CodeGraph  multi-language AST → structure         (npm: codegraph)
          └─ L4 Graphify cluster bridge → concept communities  (pip: graphifyy)
@@ -17,7 +17,7 @@ repos (sources.yaml)
                                  ├─ HTTP API      (src/api/app.py)
                                  └─ NL Q&A        (src/query/ask.py, OpenAI)
 
-documents (uploads / docs.yaml)
+documents (uploads / config/docs.yaml)
    └─ L2 docs ingest   docx·pdf·csv·xls → passages, embedded, linked to code
 ```
 
@@ -52,15 +52,15 @@ cp example.env .env      # then fill in OPENAI_API_KEY
 docker compose up --build   # → http://localhost:8000
 ```
 
-`docker-compose.yaml` mounts `sources.yaml`, `.sources/`, `.knowledge/`, and your
-`~/.ssh` (read-only, for cloning private repos), and loads secrets from `.env`.
+`docker-compose.yaml` mounts the `config/` folder, `.sources/`, `.knowledge/`, and
+your `~/.ssh` (read-only, for cloning private repos), and loads secrets from `.env`.
 
 ## HTTP API
 
 | Method  | Path                                    | Purpose                                      |
 | ------- | --------------------------------------- | -------------------------------------------- |
 | GET     | `/api/status`                           | graph stats, repos, whether Q&A is available |
-| GET/PUT | `/api/sources`                          | read / write `sources.yaml`                  |
+| GET/PUT | `/api/sources`                          | read / write `config/sources.yaml`           |
 | POST    | `/api/fetch` · `/api/build`             | start pipeline jobs → `{job_id}`             |
 | GET     | `/api/jobs/{id}`                        | job status (`running`/`succeeded`/`failed`)  |
 | GET     | `/api/search?q=&repo=&type=`            | symbol search                                |

@@ -11,6 +11,15 @@ import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# System config files (sources/workspace/docs/personas .yaml + mcp_servers.json)
+# live here so the project root stays clean; Docker bind-mounts the whole folder.
+CONFIG_DIR = PROJECT_ROOT / "config"
+
+
+def ensure_config_dir() -> Path:
+    """The config directory, created on demand so a first write never fails."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    return CONFIG_DIR
 
 
 def load_env(path: str | Path | None = None) -> None:
@@ -47,15 +56,15 @@ def _resolve(raw: str | None, default: Path) -> Path:
 
 
 def docs_config_path() -> Path:
-    """docs.yaml — the list of folders to scan for documents (ATHENA_DOCS_CONFIG)."""
-    return _resolve(os.environ.get("ATHENA_DOCS_CONFIG"), PROJECT_ROOT / "docs.yaml")
+    """config/docs.yaml — folders to scan for documents (ATHENA_DOCS_CONFIG)."""
+    return _resolve(os.environ.get("ATHENA_DOCS_CONFIG"), CONFIG_DIR / "docs.yaml")
 
 
 def personas_path() -> Path:
-    """personas.yaml — user-defined answer 'types' beside sources.yaml
-    (ATHENA_PERSONAS). Holds only custom personas / built-in overrides; the two
-    built-ins are seeded in code."""
-    return _resolve(os.environ.get("ATHENA_PERSONAS"), PROJECT_ROOT / "personas.yaml")
+    """config/personas.yaml — user-defined answer 'types' (ATHENA_PERSONAS). Holds
+    only custom personas / built-in overrides; the two built-ins are seeded in
+    code."""
+    return _resolve(os.environ.get("ATHENA_PERSONAS"), CONFIG_DIR / "personas.yaml")
 
 
 def docs_root() -> Path:

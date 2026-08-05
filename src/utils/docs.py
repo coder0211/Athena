@@ -31,6 +31,7 @@ def load_docs_config() -> dict:
 
 def save_docs_config(folders: list[str]) -> None:
     cfg = {"folders": [f.strip() for f in folders if f and f.strip()]}
+    config.ensure_config_dir()
     config.docs_config_path().write_text(yaml.safe_dump(cfg, sort_keys=False))
 
 

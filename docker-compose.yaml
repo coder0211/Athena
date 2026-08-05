@@ -12,17 +12,11 @@ services:
       - ./src:/app/src
       - ./dashboard:/app/dashboard
       - ./example:/app/example
-      # Repo config (editable from the UI) and pipeline outputs, persisted to the host.
-      - ./sources.yaml:/app/sources.yaml
-      - ./workspace.yaml:/app/workspace.yaml
-      # Third-party MCP server config (editable from the MCP tab) — persisted so it
-      # survives a container recreate/rebuild. Must exist on the host first (else
-      # Docker creates it as a directory); `touch mcp_servers.json` before the run.
-      - ./mcp_servers.json:/app/mcp_servers.json
-      # Custom answer "types" (personas) created from the chat UI. Persisted so
-      # they survive a recreate/rebuild. Must exist on the host first (else Docker
-      # creates it as a directory); `touch personas.yaml` before the run.
-      - ./personas.yaml:/app/personas.yaml
+      # All system config (sources/workspace/docs/personas .yaml + mcp_servers.json),
+      # editable from the UI and persisted to the host. Mounting the whole folder
+      # (not each file) means new config files created at runtime persist too, with
+      # no need to pre-create each one. Just `mkdir -p config` before the first run.
+      - ./config:/app/config
       - ./.sources:/app/.sources
       - ./.knowledge:/app/.knowledge
       # Uploaded documents — persisted to the host so they survive a container

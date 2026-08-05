@@ -17,8 +17,8 @@ pip install -r requirements.txt
 npm i -g @colbymchenry/codegraph
 
 # Config
-cp example.env .env                 # then set OPENAI_API_KEY (optional)
-cp example.sources.yaml sources.yaml
+cp example.env .env                                 # then set OPENAI_API_KEY (optional)
+cp config/sources.example.yaml config/sources.yaml
 ```
 
 Build a graph and run the app:
@@ -45,8 +45,9 @@ graph store directly.
 
 1. Fork the repo and create a branch: `git checkout -b my-change`.
 2. Keep changes focused; match the style of the surrounding code.
-3. Do **not** commit secrets or local data — `.env`, `sources.yaml`,
-   `.sources/`, and `.knowledge/` are gitignored for that reason. Never hardcode
+3. Do **not** commit secrets or local data — `.env`, `config/sources.yaml` (and
+   the other runtime `config/*` files), `.sources/`, and `.knowledge/` are
+   gitignored for that reason. Never hardcode
    absolute machine paths (use relative paths or config).
 4. Open a pull request against `dev` with a clear description of the change and
    how you tested it.

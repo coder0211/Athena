@@ -218,26 +218,22 @@ __marimo__/
 .streamlit/secrets.toml
 
 
-sources.yaml
+# System config files live in config/ (examples like config/example.*.yaml stay tracked).
+config/sources.yaml
+config/workspace.yaml
+config/docs.yaml
+config/personas.yaml
+config/mcp_servers.json
+
 .sources
 .knowledge
 
-# Documents knowledge source: local folder config + uploaded files (runtime data)
-docs.yaml
+# Documents knowledge source: uploaded files (runtime data)
 .docs
 
 # Code-graph tool artifacts (also created inside cloned repos)
 .codegraph/
 graphify-out/
-
-
-workspace.yaml
-
-# Custom answer "types" (personas) added from the chat UI — user data.
-personas.yaml
-
-# Third-party MCP server config — may contain tokens in env/headers.
-mcp_servers.json
 
 # Example chat backend — local SQLite store (conversations + history).
 # In Docker this lives on the chat-data volume; locally it defaults here.
