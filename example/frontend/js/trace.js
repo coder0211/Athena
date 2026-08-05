@@ -1,33 +1,44 @@
 // Investigation trace: the step-by-step of tools Athena runs while answering.
 // Shown live (with a working spinner) above the streaming answer, then collapsed
 // into a one-line "Looked at N steps" summary that expands on click. Reuses the
-// i18n status labels (already localized) so each step reads naturally, and pulls
-// a concrete target (the query / file / passage) out of the step's tool input.
+// i18n status labels (already localized) so each step reads naturally. Repeated
+// identical steps (the model re-reading the same symbol) collapse into one row
+// with a ×N counter so the list stays readable.
 import { el, escapeHtml, ICON_SEARCH, ICON_CHEVRON } from "./dom.js";
 import { t, statusLabel } from "./i18n.js";
 
-// A short, human target for a step, taken from the tool's input arguments.
-function stepTarget(input) {
+// A short, human target for a step. Prefer the backend-resolved `target` (a
+// symbol name / file / query); fall back to mining the raw tool input for older
+// saved conversations that predate it — but never show a bare node-id hash.
+function stepTarget(step) {
+  if (step && step.target) return truncate(step.target);
+  const input = step && step.input;
   if (!input || typeof input !== "object") return "";
-  const raw =
-    input.query ??
-    (input.repo ? input.repo + (input.path ? "/" + input.path : "") : null) ??
-    input.path ??
-    input.community ??
-    input.node_id ??
-    input.section_id ??
-    input.doc_id ??
-    "";
-  const s = String(raw).trim();
+  const raw = input.query ?? (input.repo && input.path ? input.repo + "/" + input.path : input.path) ?? input.community ?? "";
+  return truncate(String(raw).trim());
+}
+function truncate(s) {
   return s.length > 48 ? s.slice(0, 47) + "…" : s;
 }
+function stepKey(step) {
+  return step.tool + "|" + stepTarget(step);
+}
 
-function stepRow(step) {
+function makeRow(step) {
   const row = el("div", "trace-step");
   row.append(el("span", "trace-label", escapeHtml(statusLabel(step.tool))));
-  const target = stepTarget(step.input);
+  const target = stepTarget(step);
   if (target) row.append(el("span", "trace-target", escapeHtml(target)));
+  const count = el("span", "trace-count"); // only revealed once a step repeats
+  count.hidden = true;
+  row.append(count);
+  row._count = 1;
+  row._countEl = count;
   return row;
+}
+function bumpRow(row) {
+  row._countEl.textContent = "×" + ++row._count;
+  row._countEl.hidden = false;
 }
 
 // Create a trace panel. Returns the node plus live controls:
@@ -50,17 +61,35 @@ export function createTrace() {
     return `${s.done} ${n} ${n === 1 ? s.step : s.steps}`;
   };
 
+  // Append a step, collapsing a consecutive repeat into the previous row's ×N.
+  let lastRow = null;
+  let lastKey = null;
+  let distinct = 0;
+  const push = (step) => {
+    const key = stepKey(step);
+    if (lastRow && key === lastKey) {
+      bumpRow(lastRow);
+      return;
+    }
+    lastRow = makeRow(step);
+    lastKey = key;
+    distinct += 1;
+    list.append(lastRow);
+  };
+
   return {
     node,
     addStep(step) {
-      list.append(stepRow(step));
+      push(step);
       list.scrollTop = list.scrollHeight; // keep the newest step in view
       label.textContent = statusLabel(step.tool); // header tracks the latest action
     },
     finalize(steps) {
       list.innerHTML = "";
-      (steps || []).forEach((s) => list.append(stepRow(s)));
-      label.textContent = summarize((steps || []).length);
+      lastRow = lastKey = null;
+      distinct = 0;
+      (steps || []).forEach(push);
+      label.textContent = summarize(distinct); // count distinct rows, not raw repeats
       node.classList.remove("working", "open"); // done → collapse to the summary
     },
   };

@@ -59,6 +59,17 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def _no_cache_static(request: Request, call_next):
+    """Force the browser to revalidate the SPA (html/js/css) instead of serving a
+    stale cached copy, so an edit shows up on a normal reload — no hard-refresh
+    needed. Assets still carry an ETag, so unchanged files return a cheap 304."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 def _sse(obj: dict) -> str:
     return f"data: {json.dumps(obj)}\n\n"
 

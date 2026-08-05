@@ -1347,6 +1347,10 @@
      align-self keeps it from stretching to full width while it's a direct child
      of the (stretch) message list during loading. */
   align-self: flex-start;
+  /* While it streams the live trace is a direct child of the #messages flex
+     column; without this, once the conversation overflows (turn 2+) flex-shrink
+     collapses it to a 2px line. flex:none keeps it at its content height. */
+  flex: none;
   max-width: min(560px, 82%);
   margin-bottom: 8px;
   border: 1px solid var(--border);
@@ -1385,44 +1389,13 @@
     opacity: 1;
   }
 }
-/* Processing state: accent the active panel and run an indeterminate progress
-   bar under the header, so a working trace reads as busy rather than a flat bar. */
+/* Processing state: accent the active panel (the pulsing search icon already
+   signals "busy" — no progress bar). */
 .trace.working {
   border-color: var(--mode-accent);
 }
 .trace.working .trace-headline {
   color: var(--mode-accent);
-}
-.trace.working .trace-head {
-  position: relative;
-  overflow: hidden;
-}
-.trace.working .trace-head::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: -40%;
-  width: 40%;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, var(--mode-accent), transparent);
-  animation: trace-sweep 1.15s ease-in-out infinite;
-}
-@keyframes trace-sweep {
-  from {
-    left: -40%;
-  }
-  to {
-    left: 100%;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .trace.working .trace-head::after {
-    animation: none;
-    left: 0;
-    width: 100%;
-    opacity: 0.5;
-  }
 }
 .trace-headline {
   flex: 1;
@@ -1468,13 +1441,19 @@
 }
 .trace-step .trace-target {
   min-width: 0;
-  max-width: 260px; /* keep long node-ids from widening the loading panel */
+  max-width: 260px; /* keep long targets from widening the loading panel */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11.5px;
+}
+.trace-step .trace-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Clickable document source chips --- */

@@ -581,6 +581,40 @@ def answer_stream(
     yield from _stream_answer(question, engine, history, scope, mode, lang)
 
 
+def _step_target(engine, args: dict) -> str:
+    """A short, human label for a trace step: the search query, a file path, or a
+    resolved symbol name — never a raw graph node-id hash. Best-effort; returns ""
+    when there's nothing meaningful to show."""
+    if not isinstance(args, dict):
+        return ""
+    if args.get("query"):
+        return str(args["query"])
+    repo, path = args.get("repo"), args.get("path")
+    if path:
+        return f"{repo}/{path}" if repo else str(path)
+    if args.get("community"):
+        return str(args["community"])
+    nid = (
+        args.get("node_id")
+        or args.get("source")
+        or args.get("target")
+        or args.get("section_id")
+        or args.get("doc_id")
+    )
+    if not nid:
+        return ""
+    try:
+        if nid in engine.g.nodes:  # resolve the id to its symbol name (+ repo)
+            a = engine.g.nodes[nid]
+            name = a.get("name") or a.get("qualified_name")
+            if name:
+                return f"{name} · {a['repo']}" if a.get("repo") else str(name)
+    except Exception:
+        pass
+    tail = str(nid).split(":")[-1]  # last resort: the id tail, not the whole hash
+    return tail[:12] if tail else str(nid)
+
+
 def _stream_answer(
     question: str,
     engine: GraphQuery,
@@ -718,9 +752,10 @@ def _stream_answer(
         )
         for s in ordered:
             args, output = _run_tool(engine, s["name"], s["args"], tool_cache)
-            steps.append({"tool": s["name"], "input": args})
+            step = {"tool": s["name"], "input": args, "target": _step_target(engine, args)}
+            steps.append(step)
             _collect_source(output, sources, seen_sources)
-            yield {"tool": s["name"], "input": args}  # input enriches the live trace
+            yield step  # {tool, input, target} — target drives the live trace label
             messages.append(
                 {
                     "role": "tool",

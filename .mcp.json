@@ -2,7 +2,9 @@
   "mcpServers": {
     "athena": {
       "command": "python",
-      "args": ["src/query/server.py"],
+      "args": [
+        "src/query/server.py"
+      ],
       "env": {
         "ATHENA_GRAPH": ".knowledge/graph.json"
       }

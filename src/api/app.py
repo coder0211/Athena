@@ -21,7 +21,7 @@ import uuid
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -51,6 +51,17 @@ _UI_DIR = _PROJECT_ROOT / "dashboard"  # this service hosts the management dashb
 _GRAPH_PATH = config.graph_path()
 
 app = FastAPI(title="Athena", description="Code knowledge graph API")
+
+
+@app.middleware("http")
+async def _no_cache_static(request: Request, call_next):
+    """Force the browser to revalidate the dashboard (html/js/css) instead of
+    serving a stale cached copy, so an edit shows up on a normal reload. Assets
+    keep their ETag, so unchanged files still return a cheap 304."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 # --- lazily-loaded graph engine (reloads when the graph file changes) -----
 _engine: GraphQuery | None = None
