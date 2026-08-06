@@ -13,6 +13,7 @@ import { detectMention, updateMentions, closeMentions, pickMention } from "./men
 import { exportConversation } from "./exportmd.js";
 import { openPalette } from "./palette.js";
 import { initSelectionAsk } from "./selection.js";
+import { initPanelResize } from "./panelresize.js";
 
 // --- composer: auto-grow textarea, mentions, Enter to send ---
 let mentionTimer = null;
@@ -71,6 +72,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 initSelectionAsk();
+initPanelResize(); // right slide-over sheets become drag-to-resize
 
 // --- jump-to-latest button: shown when the user scrolls up off the bottom ---
 const scrollBtn = $("scroll-bottom");

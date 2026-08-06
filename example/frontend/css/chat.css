@@ -1546,13 +1546,45 @@ body.panel-open {
   top: 0;
   right: 0;
   height: 100%;
-  width: min(560px, 92vw);
+  /* Width is user-resizable via the left-edge grip; --panel-w (set by
+     panelresize.js and persisted) overrides this default when present. */
+  width: var(--panel-w, min(560px, 92vw));
   display: flex;
   flex-direction: column;
   background: var(--panel);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 28px rgba(0, 0, 0, 0.35);
   animation: sheet-in 0.2s ease;
+}
+/* Drag handle on the sheet's left edge — drag to resize, double-click to reset. */
+.source-resizer {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 1;
+  touch-action: none;
+}
+.source-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 2px;
+  width: 2px;
+  height: 100%;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.source-resizer:hover::before,
+body.resizing-panel .source-resizer::before {
+  background: var(--accent);
+}
+/* While dragging, kill text selection and force the resize cursor everywhere. */
+body.resizing-panel {
+  cursor: ew-resize;
+  user-select: none;
 }
 @keyframes sheet-in {
   from {
