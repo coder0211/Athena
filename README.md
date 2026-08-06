@@ -259,8 +259,10 @@ example/
 ## Contributing
 
 Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
-for local setup and guidelines, and [`SECURITY.md`](SECURITY.md) to report a
-vulnerability privately.
+for local setup and guidelines, [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) for
+community expectations, and [`SECURITY.md`](SECURITY.md) to report a
+vulnerability privately. Notable changes are recorded in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 

@@ -49,11 +49,13 @@ browse graph stats, search symbols, and ask natural-language questions. Set
 
 ```bash
 cp example.env .env      # then fill in OPENAI_API_KEY
-docker compose up --build   # → http://localhost:8000
+docker compose up --build   # dashboard/API → :8000 · chat app → :8100/chat
 ```
 
-`docker-compose.yaml` mounts the `config/` folder, `.sources/`, `.knowledge/`, and
-your `~/.ssh` (read-only, for cloning private repos), and loads secrets from `.env`.
+Compose runs two services from the one image: the **dashboard + API on 8000** and
+the **chat app on 8100**. `docker-compose.yaml` mounts the `config/` folder,
+`.sources/`, `.knowledge/`, and your `~/.ssh` (read-only, for cloning private
+repos), and loads secrets from `.env`.
 
 ## HTTP API
 
@@ -69,6 +71,10 @@ your `~/.ssh` (read-only, for cloning private repos), and loads secrets from `.e
 | GET     | `/api/docs` · `/api/docs/search?q=`     | list documents · search passages             |
 | POST    | `/api/docs/upload` · `/api/docs/reindex`| upload a file · reindex the docs layer       |
 | POST    | `/api/ask` `{question}`                 | natural-language answer (+ tool trace)       |
+| POST    | `/api/ask/stream` `{question}`          | same, streamed as Server-Sent Events         |
+
+This is the core subset; see the **HTTP API** table in the
+[README](README.md#http-api) for the full list (personas, streaming, and more).
 
 ## MCP server
 

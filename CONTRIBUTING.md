@@ -1,7 +1,8 @@
 # Contributing to Athena
 
 Thanks for your interest in improving Athena! This guide covers local setup and
-the basics for sending a change.
+the basics for sending a change. By participating, you agree to abide by our
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Local setup
 
