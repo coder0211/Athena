@@ -1,6 +1,6 @@
 // Documents tab: manage scan folders, upload files, list indexed documents,
 // and trigger an incremental re-index (docs only — no full code rebuild).
-import { $, el, escapeHtml } from "./dom.js";
+import { $, el, escapeHtml, askConfirm } from "./dom.js";
 import { api } from "./api.js";
 import { refreshStatus } from "./stats.js";
 
@@ -515,46 +515,6 @@ function askText({ title, label = "", value = "", placeholder = "", ok = "OK" })
     dlg.showModal();
     input.focus();
     input.select();
-  });
-}
-
-// Themed confirmation dialog — returns Promise<boolean>. `danger` reddens the
-// confirm button for destructive actions (delete).
-function askConfirm({ title, message = "", ok = "OK", danger = false }) {
-  return new Promise((resolve) => {
-    const dlg = el("dialog", "modal");
-    dlg.innerHTML =
-      `<div class="modal-card">` +
-      `<h3 class="modal-title"></h3>` +
-      (message ? `<p class="modal-msg"></p>` : "") +
-      `<div class="modal-actions">` +
-      `<button type="button" class="btn small" data-act="cancel">Cancel</button>` +
-      `<button type="button" class="btn small ${danger ? "danger" : "primary"}" data-act="ok"></button>` +
-      `</div></div>`;
-    dlg.querySelector(".modal-title").textContent = title;
-    if (message) dlg.querySelector(".modal-msg").textContent = message;
-    dlg.querySelector('[data-act="ok"]').textContent = ok;
-
-    let done = false;
-    const finish = (val) => {
-      if (done) return;
-      done = true;
-      resolve(val);
-      dlg.close();
-      dlg.remove();
-    };
-    dlg.querySelector('[data-act="ok"]').onclick = () => finish(true);
-    dlg.querySelector('[data-act="cancel"]').onclick = () => finish(false);
-    dlg.addEventListener("cancel", (e) => {
-      e.preventDefault();
-      finish(false);
-    });
-    dlg.addEventListener("click", (e) => {
-      if (e.target === dlg) finish(false);
-    });
-    document.body.append(dlg);
-    dlg.showModal();
-    dlg.querySelector('[data-act="ok"]').focus();
   });
 }
 

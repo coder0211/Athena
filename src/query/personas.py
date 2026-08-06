@@ -461,6 +461,68 @@ def generate_instruction(client, model: str, description: str, label: str = "", 
     return out
 
 
+# --- generate opening "starter" questions for the empty chat screen -------
+
+_STARTERS_SYSTEM = (
+    "You write the opening starter questions for Athena, an assistant that reads a "
+    "codebase and explains how the product works. Given ONE persona (the audience and "
+    "voice) and the ACTUAL repositories and concept areas found in THIS codebase, write "
+    "short first-person questions this reader would open a chat with.\n"
+    "Rules:\n"
+    "- Ground every question in the given repositories and concept areas — never invent a "
+    "domain, feature, or product that isn't in the provided context.\n"
+    "- Match the persona's voice and altitude: a non-technical reader asks about behaviour "
+    "and outcomes; a technical reader asks about implementation — call paths, data flow, "
+    "where things live.\n"
+    "- Keep each question under ~14 words, natural, and distinct from the others.\n"
+    'Return ONLY a JSON object: {"questions": ["…", …]} with exactly N items, no prose.'
+)
+
+_STARTER_LANGS = {"vi": "Vietnamese", "en": "English"}
+
+
+def generate_starters(client, model: str, persona: dict, repos, concepts, lang: str = "en", n: int = 4, **params) -> list[str]:
+    """LLM-drafted opening questions for the empty chat screen, grounded in the real
+    repositories + concept areas of THIS codebase and written in the persona's voice.
+    Returns a list of question strings (best-effort — the caller supplies a fallback
+    when the model is unavailable or returns nothing usable)."""
+    persona = persona or {}
+    ctx = {
+        "persona": {
+            "label": persona.get("label", ""),
+            "description": persona.get("description", ""),
+            "greeting": persona.get("greeting", ""),
+        },
+        "repositories": list(repos or [])[:8],
+        "concept_areas": list(concepts or [])[:12],
+        "n": n,
+    }
+    lang_name = _STARTER_LANGS.get((lang or "").lower())
+    lang_note = f"\n\nWrite the questions in {lang_name}." if lang_name else ""
+    user = "Write starter questions for this persona and codebase:\n\n" + json.dumps(ctx, ensure_ascii=False) + lang_note
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": _STARTERS_SYSTEM},
+            {"role": "user", "content": user},
+        ],
+        stream=False,
+        **params,
+    )
+    data = _parse_json_object(resp.choices[0].message.content or "")
+    raw = data.get("questions") if isinstance(data, dict) else None
+    if not isinstance(raw, list):
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for q in raw:
+        q = str(q or "").strip()
+        if q and q.lower() not in seen:
+            seen.add(q.lower())
+            out.append(q)
+    return out[:n]
+
+
 def _parse_json_object(text: str) -> dict:
     """Extract a JSON object from the model reply, tolerating a ```json fence or
     stray prose around it."""

@@ -24,6 +24,7 @@ import { openSource } from "./sourceviewer.js";
 import { copyText } from "./clipboard.js";
 import { showToast } from "./toast.js";
 import { send, regenerate, editResend } from "./composer.js";
+import { apiGet } from "./api.js";
 
 // --- empty / welcome state ---
 export function hideEmpty() {
@@ -43,6 +44,10 @@ export function clearMessages() {
     .querySelectorAll(".chat-msg")
     .forEach((r) => r.remove());
 }
+// Cache of dynamic starters per `${persona}|${lang}`, so switching type/language
+// back and forth doesn't refetch (and re-hit the LLM on the server).
+const starterCache = new Map();
+
 export function renderEmpty() {
   const e = $("empty");
   if (!e) return; // gone once the conversation starts
@@ -54,30 +59,65 @@ export function renderEmpty() {
   const persona = (S.PERSONAS || []).find((p) => p.id === S.mode);
   const title = builtin?.title || persona?.label || s.copy.business.title;
   const desc = builtin?.desc || persona?.greeting || persona?.description || s.copy.business.desc;
-  const suggestions =
+  // Shown instantly so the screen is never empty; swapped for codebase-specific
+  // starters (generated for this type + language) as soon as they arrive.
+  const fallback =
     builtin?.suggestions ||
     (persona?.suggestions?.length ? persona.suggestions : s.copy.business.suggestions);
   e.querySelector("h2").textContent = title;
   e.querySelector("p").textContent = desc;
   e.querySelector(".chat-empty-tip").innerHTML = s.tip;
+  renderSuggestions(fallback);
+  loadStarters(S.mode, S.lang);
+}
+
+// (Re)build the suggestion chips: the given questions first, then one starter per
+// indexed repo so the first run is always relevant to this codebase.
+function renderSuggestions(questions) {
   const box = $("suggestions");
+  if (!box) return;
   box.innerHTML = "";
-  suggestions.forEach((q) => {
+  (questions || []).forEach((q) => {
     const chip = el("button", "suggestion", escapeHtml(q));
     chip.type = "button";
     chip.onclick = () => send(q);
     box.append(chip);
   });
-  // Starters built from the actually-indexed repos, so the first run is relevant
-  // to this codebase rather than the generic ticket examples.
   (S.REPOS || []).slice(0, 4).forEach((repo) => {
     const name = shortRepoName(repo);
-    const q = s.repoStarter.replace("{repo}", name);
+    const q = t().repoStarter.replace("{repo}", name);
     const chip = el("button", "suggestion suggestion-repo", "📦 " + escapeHtml(q));
     chip.type = "button";
     chip.onclick = () => send(q);
     box.append(chip);
   });
+}
+
+// Fetch starter questions grounded in the indexed code (LLM in the persona's voice
+// when a key is set, else derived from the graph's concept areas). Best-effort:
+// on any error we keep the fallback already on screen.
+async function loadStarters(mode, lang) {
+  const key = `${mode}|${lang}`;
+  if (starterCache.has(key)) return applyStarters(starterCache.get(key), mode, lang);
+  try {
+    const data = await apiGet(
+      `/api/starters?persona=${encodeURIComponent(mode)}&lang=${encodeURIComponent(lang)}&n=4`,
+    );
+    const qs = (data && data.questions) || [];
+    if (qs.length) {
+      starterCache.set(key, qs);
+      applyStarters(qs, mode, lang);
+    }
+  } catch {
+    /* offline or graph not built — the fallback suggestions stay. */
+  }
+}
+
+// Swap in the fetched starters only if the empty screen is still up and hasn't
+// switched type/language while the request was in flight.
+function applyStarters(questions, mode, lang) {
+  if (!$("empty") || S.mode !== mode || S.lang !== lang) return;
+  renderSuggestions(questions);
 }
 
 // A short, human repo name from an indexed repo id (often a full git URL).

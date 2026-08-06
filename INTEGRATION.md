@@ -82,6 +82,6 @@ Registered in `.mcp.json` as `athena`. Tools: `overview`, `search_symbols`,
 `get_symbol`, `neighbors`, `callers`, `callees`, `impact`, `find_path`,
 `list_communities`, `community_members`. Point any MCP client at:
 
-```
+```bash
 python src/query/server.py     # stdio; ATHENA_GRAPH=/path/to/graph.json
 ```

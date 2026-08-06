@@ -213,6 +213,50 @@ The chat app (`example/backend`, :8100) adds conversation + history endpoints
 (`/api/conversations…`) on top of this API — see
 [`example/backend/README.md`](example/backend/README.md).
 
+## Examples
+
+> The snippets below use placeholder repos, symbols, and questions — swap in your
+> own. See `config/*.example.*` for the full config templates.
+
+### Point Athena at your repositories
+
+`config/sources.yaml` (copy from `config/sources.example.yaml`):
+
+```yaml
+repositories:
+  - url: https://github.com/example/web-app.git
+    branch: main
+  - url: git@github.com:example/billing-service.git   # SSH remote for a private repo
+    branch: develop
+```
+
+Then build the graph with `python src/main.py all` (or click **Build** in the
+dashboard).
+
+### Query the HTTP API
+
+```bash
+# Structured symbol search
+curl "http://127.0.0.1:8000/api/search?q=PaymentService&type=Class"
+
+# Natural-language question — JSON answer plus the tool trace
+curl -X POST http://127.0.0.1:8000/api/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How does checkout charge a customer?"}'
+
+# Same question, streamed as Server-Sent Events
+curl -N -X POST http://127.0.0.1:8000/api/ask/stream \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Where is user authentication handled?"}'
+```
+
+### Questions that work well
+
+- _"How does a new user sign up, end to end?"_
+- _"What breaks if I change the `Invoice` model?"_ — impact / blast radius
+- _"Which services talk to the payments module?"_ — cross-repo relations
+- _"Summarize the billing flow for a non-technical stakeholder."_ — Business type
+
 ## MCP server
 
 Registered in `.mcp.json` as `athena`. Tools: `overview`, `search_symbols`,
@@ -221,6 +265,21 @@ Registered in `.mcp.json` as `athena`. Tools: `overview`, `search_symbols`,
 
 ```bash
 python src/query/server.py     # stdio; ATHENA_GRAPH=/path/to/graph.json
+```
+
+To connect an editor or agent (Claude Desktop, Cursor, …), point its MCP config
+at the server over stdio:
+
+```json
+{
+  "mcpServers": {
+    "athena": {
+      "command": "python",
+      "args": ["src/query/server.py"],
+      "env": { "ATHENA_GRAPH": ".knowledge/graph.json" }
+    }
+  }
+}
 ```
 
 ## Embed the query engine

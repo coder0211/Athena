@@ -1,6 +1,6 @@
 // Source repositories tab: rows of (git URL + searchable branch combo), with
 // load-branches, add, remove, and save.
-import { $, el, escapeHtml } from "./dom.js";
+import { $, el, escapeHtml, askConfirm } from "./dom.js";
 import { api } from "./api.js";
 import { refreshStatus } from "./stats.js";
 
@@ -77,8 +77,12 @@ async function loadBranches(url, combo) {
   }
 }
 
-function repoRow(url = "", branch = "main") {
+// `saved` marks a row that already exists on the server (loaded from sources.yaml
+// or persisted by a save) — its ✕ does a real DELETE (drops the clone + workspace
+// links), vs. an unsaved row which is just discarded from the DOM.
+function repoRow(url = "", branch = "main", saved = false) {
   const row = el("div", "repo-row");
+  if (saved && url) row.dataset.savedUrl = url;
   const idx = el("span", "repo-index"); // 1-based position, filled by renumber()
   const u = el("input", "repo-url");
   u.value = url;
@@ -95,14 +99,45 @@ function repoRow(url = "", branch = "main") {
   const del = el("button", "icon-btn", "✕");
   del.type = "button";
   del.title = "Remove";
-  del.onclick = () => {
-    row.remove();
-    renumber();
-  };
+  del.onclick = () => removeRow(row);
 
   row.append(idx, u, combo.wrap, refresh, del);
   if (url) load(); // auto-load branches when the URL is already known
   return row;
+}
+
+// Remove a repo row. Unsaved rows just drop from the DOM; a saved repo is deleted
+// on the server (sources.yaml + its .sources/ clone + workspace links) after a
+// confirm — the graph keeps its symbols until the next rebuild.
+async function removeRow(row) {
+  const savedUrl = row.dataset.savedUrl;
+  if (!savedUrl) {
+    row.remove();
+    renumber();
+    return;
+  }
+  const ok = await askConfirm({
+    title: "Remove repository",
+    message: `Delete ${savedUrl}? This removes its clone and workspace links. Rebuild the graph afterwards to purge its symbols.`,
+    ok: "Remove",
+    danger: true,
+  });
+  if (!ok) return;
+  const msg = $("repos-msg");
+  try {
+    await api.del("/api/repos?url=" + encodeURIComponent(savedUrl));
+    row.remove();
+    total = Math.max(0, total - 1);
+    serverLoaded = Math.max(0, serverLoaded - 1);
+    renumber();
+    renderMore();
+    refreshStatus();
+    msg.textContent = "Removed — rebuild the graph to purge its symbols.";
+    msg.className = "msg ok";
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = "msg err";
+  }
 }
 
 // --- numbering + server-side pagination ----------------------------------
@@ -135,7 +170,7 @@ async function loadMore() {
   more.innerHTML = `<span class="msg">Loading…</span>`;
   try {
     const resp = await api.get(`/api/sources?offset=${serverLoaded}&limit=${PAGE}`);
-    (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch)));
+    (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch, true)));
     serverLoaded += (resp.repositories || []).length;
     total = resp.total ?? total;
     renumber();
@@ -155,7 +190,7 @@ export async function loadRepos() {
     rows.append(repoRow()); // empty starter row
     serverLoaded = 0;
   } else {
-    list.forEach((r) => rows.append(repoRow(r.url, r.branch)));
+    list.forEach((r) => rows.append(repoRow(r.url, r.branch, true)));
     serverLoaded = list.length;
   }
   renumber();
@@ -179,7 +214,7 @@ $("save-repos").onclick = async () => {
     msg.className = "msg";
     try {
       const resp = await api.get(`/api/sources?offset=${serverLoaded}`);
-      (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch)));
+      (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch, true)));
       serverLoaded += (resp.repositories || []).length;
       total = resp.total ?? total;
       renumber();
@@ -202,6 +237,12 @@ $("save-repos").onclick = async () => {
     msg.className = "msg ok";
     total = repositories.length;
     serverLoaded = repositories.length;
+    // Now persisted — mark every row saved so its ✕ does a real server-side delete.
+    [...$("repo-rows").children].forEach((tr) => {
+      const u = tr.querySelector(".repo-url").value.trim();
+      if (u) tr.dataset.savedUrl = u;
+      else delete tr.dataset.savedUrl;
+    });
     renderMore();
     refreshStatus();
   } catch (e) {

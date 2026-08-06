@@ -34,7 +34,7 @@ from query import ask as ask_module
 from query import personas as personas_module
 from query.engine import GraphQuery
 from utils.docs import document_roots, load_docs_config, save_docs_config
-from utils.repo.fetch import DEFAULT_SOURCES_PATH, fetch
+from utils.repo.fetch import DEFAULT_SOURCES_FOLDER, DEFAULT_SOURCES_PATH, fetch
 from utils.workspace import (
     RELATION_TYPES,
     REPO_ROLES,
@@ -180,6 +180,68 @@ def put_sources(sources: Sources) -> dict:
         yaml.safe_dump(sources.model_dump(), sort_keys=False)
     )
     return {"ok": True, "count": len(sources.repositories)}
+
+
+def _repo_name_from_url(url: str) -> str:
+    """The clone folder name Athena derives from a repo URL (same rule as fetch)."""
+    return (url or "").strip().rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+
+
+@app.delete("/api/repos")
+def delete_repo(url: str) -> dict:
+    """Fully remove a repository, not just its sources entry: drop it from
+    sources.yaml, delete its clone under .sources/, and clean its workspace
+    metadata + relations. The graph keeps the repo's symbols until the next build
+    (build reads .sources/, which is now pruned), so rebuild to purge them."""
+    url = (url or "").strip()
+    if not url:
+        raise HTTPException(400, "Provide the repository url to delete.")
+    name = _repo_name_from_url(url)
+
+    # 1) sources.yaml — drop entries matching this url (or the same clone name).
+    repos = _read_sources()
+    kept = [
+        r
+        for r in repos
+        if r.get("url", "").strip() != url and _repo_name_from_url(r.get("url", "")) != name
+    ]
+    removed_from_sources = len(repos) - len(kept)
+    if removed_from_sources:
+        DEFAULT_SOURCES_PATH.write_text(
+            yaml.safe_dump({"repositories": kept}, sort_keys=False)
+        )
+
+    # 2) the cloned working tree under .sources/ (so a rebuild won't re-include it).
+    import shutil
+
+    clone = DEFAULT_SOURCES_FOLDER / name
+    clone_removed = clone.is_dir()
+    if clone_removed:
+        shutil.rmtree(clone, ignore_errors=True)
+
+    # 3) workspace: the repo's node + any relation touching it (ids are 'repo:<name>').
+    ws = load_workspace()
+    node_id = f"repo:{name}"
+    refs = lambda ref: (ref or "") in (node_id, name)  # noqa: E731
+    ws_changed = ws.get("repos", {}).pop(name, None) is not None
+    rels = ws.get("relations", [])
+    kept_rels = [r for r in rels if not (refs(r.get("source")) or refs(r.get("target")))]
+    if len(kept_rels) != len(rels):
+        ws["relations"] = kept_rels
+        ws_changed = True
+    if ws_changed:
+        save_workspace(ws)
+
+    if not (removed_from_sources or clone_removed or ws_changed):
+        raise HTTPException(404, f"No repository matching {url!r}.")
+    return {
+        "ok": True,
+        "repo": name,
+        "removed_from_sources": removed_from_sources,
+        "clone_removed": clone_removed,
+        "workspace_cleaned": ws_changed,
+        "note": "Rebuild the graph to purge this repo's symbols.",
+    }
 
 
 class WorkspaceIn(BaseModel):
@@ -631,6 +693,66 @@ def generate_persona(body: PersonaGenerateIn) -> dict:
     except Exception as e:  # LLM/provider error — surface cleanly, no 500
         raise HTTPException(status_code=502, detail=f"{type(e).__name__}: {e}")
     return draft
+
+
+# --- opening starter questions for the empty chat screen ------------------
+# Instead of hard-coding welcome questions, derive them from THIS codebase: the
+# LLM writes them in the persona's voice grounded in the real repos + concept
+# areas; without a key we fall back to templated questions over the top concepts.
+# Cached per (persona, lang) and invalidated whenever the graph changes.
+_starters_cache: dict[tuple, list[str]] = {}
+
+
+def _starter_fallback(persona_id: str | None, concepts: list[str], lang: str, n: int) -> list[str]:
+    """No-LLM starters: one question per top concept area, phrased for the persona
+    kind and language. Data-driven (real concept names) rather than hard-coded copy."""
+    tech = persona_id == "technical"
+    tmpl = {
+        ("vi", True): "{c} được cài đặt như thế nào?",
+        ("vi", False): "{c} hoạt động như thế nào?",
+        ("en", True): "How is {c} implemented?",
+        ("en", False): "How does {c} work?",
+    }[("vi" if (lang or "").lower() == "vi" else "en", tech)]
+    return [tmpl.format(c=c) for c in concepts[:n]]
+
+
+@app.get("/api/starters")
+def starters(persona: str | None = None, lang: str = "en", n: int = 4) -> dict:
+    """Opening questions for the empty chat screen, grounded in the indexed code."""
+    n = max(1, min(int(n or 4), 8))
+    engine = get_engine()  # 404 if the graph isn't built yet
+    key = (persona or "", (lang or "").lower(), n, _engine_sig())
+    if key in _starters_cache:
+        return {"questions": _starters_cache[key], "source": "cache"}
+
+    repos = engine.repos()
+    concepts = [c["name"] for c in engine.list_communities(limit=12) if c.get("name")]
+
+    questions: list[str] = []
+    source = "graph"
+    if ask_module.is_available():
+        token_param = os.environ.get("ATHENA_TOKENS_PARAM", "max_tokens")
+        try:
+            questions = personas_module.generate_starters(
+                ask_module._client(),
+                ask_module._model(),
+                personas_module.get(persona),
+                repos,
+                concepts,
+                lang=lang,
+                n=n,
+                **{token_param: 400},
+            )
+            source = "llm"
+        except Exception:  # provider/parse error — fall back to graph-derived
+            questions = []
+    if not questions:
+        questions = _starter_fallback(persona, concepts, lang, n)
+        source = "graph"
+
+    if questions:  # don't cache an empty result (e.g. graph with no communities yet)
+        _starters_cache[key] = questions
+    return {"questions": questions, "source": source}
 
 
 # --- natural-language Q&A -------------------------------------------------
