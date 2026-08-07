@@ -63,20 +63,24 @@ callees to keep browsing.
 
 <p align="center"><img src="example/code-explorer.png" alt="A technical answer citing files and symbols, with the real source of the Login component open in a side panel" width="900" /></p>
 
-**Every question is grounded in your actual codebase** — the empty screen suggests
-starter questions built from the repositories and concept areas Athena found, not
-canned examples.
+**Manage it from one place.** The dashboard is where you add repositories and run
+the build pipeline, browse the documents you've indexed, map how your repos relate
+(for cross-repo answers), and connect third-party MCP tools.
 
-<p align="center"><img src="example/technical-answer.png" alt="Athena tracing the login request flow end to end, from the frontend component to the backend token creation" width="900" /></p>
-
-**Manage it from one place.** Add repositories, run the build pipeline
-(extract → merge → cluster), and see the graph at a glance — node and edge counts,
-concept communities, and per-repo breakdowns.
-
-<p align="center"><img src="example/dashboard.png" alt="Athena management dashboard showing the source repository, the fetch/build pipeline, and a graph overview with node, edge, and community counts" width="900" /></p>
+<table>
+  <tr>
+    <td width="50%"><img src="example/dashboard.png" alt="Repositories tab: source repos, the fetch/build pipeline, and a graph overview with node, edge, and community counts" /><br/><em>Repositories &amp; build pipeline, with a graph overview</em></td>
+    <td width="50%"><img src="example/dashboard-documents.png" alt="Documents tab: uploaded specs and docs chunked into searchable, code-linked passages" /><br/><em>Documents — chunked, searchable, linked to code</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="example/dashboard-workspace.png" alt="Workspace tab: a node-and-edge map of repositories and their typed relations" /><br/><em>Workspace — map repos and their relations</em></td>
+    <td width="50%"><img src="example/dashboard-mcp.png" alt="MCP tab: a JSON editor for registering third-party MCP servers" /><br/><em>MCP — connect third-party tool servers</em></td>
+  </tr>
+</table>
 
 > The screenshots above are a live demo indexed on the open-source
-> [full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template).
+> [full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template)
+> (the Workspace map adds two illustrative service nodes).
 
 ## Architecture
 
