@@ -7,7 +7,9 @@
 **Turn your Git repositories into a queryable code knowledge graph — then ask
 questions about how the product works in plain language.**
 
-<p align="center"><img src="example/screenshot.png" alt="Athena chat UI" width="720" /></p>
+<p align="center"><img src="example/screenshot.png" alt="Athena chat UI answering “How does a user sign up and log in?” with a step-by-step business explanation and an expandable investigation trace" width="880" /></p>
+
+<p align="center"><em>Asking a plain-language question — Athena searches the graph, reads the real source, and explains it step by step, showing every step it took. (Demo indexed on the open-source <a href="https://github.com/fastapi/full-stack-fastapi-template">full-stack-fastapi-template</a>.)</em></p>
 
 Athena ingests your Git repositories — and, optionally, your product documents
 (specs, PDFs, spreadsheets) — extracts their structure (symbols, call/reference
@@ -52,6 +54,29 @@ stakeholders to developers (and any custom "type" you define).
   revisit, rename, and delete past chats.
 - **Structured access too** — the same graph powers a **REST API** and an **MCP
   server** for editors and agents.
+
+## See it in action
+
+**Jump straight into the code.** A technical answer cites `path:line` and symbols
+you can click — Athena opens the real source in a side panel, with the callers and
+callees to keep browsing.
+
+<p align="center"><img src="example/code-explorer.png" alt="A technical answer citing files and symbols, with the real source of the Login component open in a side panel" width="900" /></p>
+
+**Every question is grounded in your actual codebase** — the empty screen suggests
+starter questions built from the repositories and concept areas Athena found, not
+canned examples.
+
+<p align="center"><img src="example/technical-answer.png" alt="Athena tracing the login request flow end to end, from the frontend component to the backend token creation" width="900" /></p>
+
+**Manage it from one place.** Add repositories, run the build pipeline
+(extract → merge → cluster), and see the graph at a glance — node and edge counts,
+concept communities, and per-repo breakdowns.
+
+<p align="center"><img src="example/dashboard.png" alt="Athena management dashboard showing the source repository, the fetch/build pipeline, and a graph overview with node, edge, and community counts" width="900" /></p>
+
+> The screenshots above are a live demo indexed on the open-source
+> [full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template).
 
 ## Architecture
 
