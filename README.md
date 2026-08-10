@@ -183,26 +183,26 @@ Stop and clean up with `docker compose down`.
 
 Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 
-| Variable                     | Default                 | Purpose                                                                   |
-| ---------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| `OPENAI_API_KEY`             | —                       | LLM API key. Enables Q&A; unset → structured search only.                 |
-| `ATHENA_API_BASE`            | —                       | OpenAI-compatible endpoint (Ollama, vLLM, OpenRouter, …). Unset → OpenAI. |
-| `ATHENA_API_KEY`             | —                       | Provider-agnostic key alias (wins over `OPENAI_API_KEY`).                 |
-| `ATHENA_ASK_MODEL`           | `gpt-4.1-nano`          | Any tool-capable model on your provider.                                  |
-| `ATHENA_EMBED_MODEL`         | `text-embedding-3-small`| Embedding model for document search (falls back to BM25 if no API key).   |
-| `ATHENA_GRAPH`               | `.knowledge/graph.json` | Path to the built graph.                                                  |
-| `ATHENA_PERSONAS`            | `config/personas.yaml`  | Path to custom answer types (personas).                                   |
-| `ATHENA_TEMPERATURE`         | `0.3`                   | Q&A sampling temperature; `none` to omit (reasoning models).              |
-| `ATHENA_MAX_TOKENS`          | `2048`                  | Max tokens for a Q&A answer.                                              |
-| `ATHENA_TOKENS_PARAM`        | `max_tokens`            | Token-limit param name (`max_completion_tokens` for o-series/gpt-5).      |
-| `ATHENA_PARALLEL_TOOL_CALLS` | `true`                  | Batch independent tool calls; `false` if the model rejects it.            |
-| `ATHENA_MAX_STEPS`           | `16`                    | Max tool-calling rounds per question.                                     |
-| `ATHENA_TOOL_RESULT_CHARS`   | `12000`                 | Max chars of one tool result fed back (0 = uncapped).                     |
-| `ATHENA_MAX_CODE_LINES`      | `400`                   | Max lines returned by one source read.                                    |
-| `ATHENA_CODE_CONTEXT`        | `15`                    | Extra lines shown around a symbol.                                        |
-| `ATHENA_IMPACT_DEPTH`        | `10`                    | Default hops for impact / blast-radius.                                   |
-| `ATHENA_PATH_MAX_LEN`        | `20`                    | Default max hops for shortest-path search.                                |
-| `ATHENA_MCP_ALLOW_STDIO`     | `1`                     | Allow local (stdio) MCP servers; `0` = remote http servers only.          |
+| Variable                     | Default                  | Purpose                                                                   |
+| ---------------------------- | ------------------------ | ------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`             | —                        | LLM API key. Enables Q&A; unset → structured search only.                 |
+| `ATHENA_API_BASE`            | —                        | OpenAI-compatible endpoint (Ollama, vLLM, OpenRouter, …). Unset → OpenAI. |
+| `ATHENA_API_KEY`             | —                        | Provider-agnostic key alias (wins over `OPENAI_API_KEY`).                 |
+| `ATHENA_ASK_MODEL`           | `gpt-4.1-nano`           | Any tool-capable model on your provider.                                  |
+| `ATHENA_EMBED_MODEL`         | `text-embedding-3-small` | Embedding model for document search (falls back to BM25 if no API key).   |
+| `ATHENA_GRAPH`               | `.knowledge/graph.json`  | Path to the built graph.                                                  |
+| `ATHENA_PERSONAS`            | `config/personas.yaml`   | Path to custom answer types (personas).                                   |
+| `ATHENA_TEMPERATURE`         | `0.3`                    | Q&A sampling temperature; `none` to omit (reasoning models).              |
+| `ATHENA_MAX_TOKENS`          | `2048`                   | Max tokens for a Q&A answer.                                              |
+| `ATHENA_TOKENS_PARAM`        | `max_tokens`             | Token-limit param name (`max_completion_tokens` for o-series/gpt-5).      |
+| `ATHENA_PARALLEL_TOOL_CALLS` | `true`                   | Batch independent tool calls; `false` if the model rejects it.            |
+| `ATHENA_MAX_STEPS`           | `16`                     | Max tool-calling rounds per question.                                     |
+| `ATHENA_TOOL_RESULT_CHARS`   | `12000`                  | Max chars of one tool result fed back (0 = uncapped).                     |
+| `ATHENA_MAX_CODE_LINES`      | `400`                    | Max lines returned by one source read.                                    |
+| `ATHENA_CODE_CONTEXT`        | `15`                     | Extra lines shown around a symbol.                                        |
+| `ATHENA_IMPACT_DEPTH`        | `10`                     | Default hops for impact / blast-radius.                                   |
+| `ATHENA_PATH_MAX_LEN`        | `20`                     | Default max hops for shortest-path search.                                |
+| `ATHENA_MCP_ALLOW_STDIO`     | `1`                      | Allow local (stdio) MCP servers; `0` = remote http servers only.          |
 
 ## Answer types
 
@@ -219,24 +219,24 @@ the `/api/personas` endpoints, so an editor or agent can manage them too.
 
 ## HTTP API
 
-| Method  | Path                                    | Purpose                                      |
-| ------- | --------------------------------------- | -------------------------------------------- |
-| GET     | `/api/status`                           | graph stats, repos, whether Q&A is available |
-| GET/PUT | `/api/sources`                          | read / write `config/sources.yaml`           |
-| POST    | `/api/fetch` · `/api/build`             | start pipeline jobs → `{job_id}`             |
-| GET     | `/api/jobs/{id}`                        | job status (`running`/`succeeded`/`failed`)  |
-| GET     | `/api/search?q=&repo=&type=`            | symbol search                                |
-| GET     | `/api/symbol/{id}` · `/api/impact/{id}` | detail · blast radius                        |
-| GET     | `/api/communities?q=`                   | concept clusters                             |
-| GET     | `/api/docs`                             | list indexed documents                       |
-| POST    | `/api/docs/upload` · `/api/docs/reindex`| upload a file · reindex the docs layer       |
-| GET     | `/api/docs/search?q=`                   | search document passages                     |
-| POST    | `/api/ask` `{question}`                 | natural-language answer (+ tool trace)       |
-| POST    | `/api/ask/stream` `{question}`          | same, streamed as Server-Sent Events         |
-| GET     | `/api/personas`                         | list answer types (built-in + custom)        |
-| POST    | `/api/personas`                         | create / update a custom type                |
-| DELETE  | `/api/personas/{id}`                    | delete a custom type                         |
-| POST    | `/api/personas/generate` `{description}`| draft a type's instruction from a description|
+| Method  | Path                                     | Purpose                                       |
+| ------- | ---------------------------------------- | --------------------------------------------- |
+| GET     | `/api/status`                            | graph stats, repos, whether Q&A is available  |
+| GET/PUT | `/api/sources`                           | read / write `config/sources.yaml`            |
+| POST    | `/api/fetch` · `/api/build`              | start pipeline jobs → `{job_id}`              |
+| GET     | `/api/jobs/{id}`                         | job status (`running`/`succeeded`/`failed`)   |
+| GET     | `/api/search?q=&repo=&type=`             | symbol search                                 |
+| GET     | `/api/symbol/{id}` · `/api/impact/{id}`  | detail · blast radius                         |
+| GET     | `/api/communities?q=`                    | concept clusters                              |
+| GET     | `/api/docs`                              | list indexed documents                        |
+| POST    | `/api/docs/upload` · `/api/docs/reindex` | upload a file · reindex the docs layer        |
+| GET     | `/api/docs/search?q=`                    | search document passages                      |
+| POST    | `/api/ask` `{question}`                  | natural-language answer (+ tool trace)        |
+| POST    | `/api/ask/stream` `{question}`           | same, streamed as Server-Sent Events          |
+| GET     | `/api/personas`                          | list answer types (built-in + custom)         |
+| POST    | `/api/personas`                          | create / update a custom type                 |
+| DELETE  | `/api/personas/{id}`                     | delete a custom type                          |
+| POST    | `/api/personas/generate` `{description}` | draft a type's instruction from a description |
 
 The chat app (`example/backend`, :8100) adds conversation + history endpoints
 (`/api/conversations…`) on top of this API — see
@@ -255,7 +255,7 @@ The chat app (`example/backend`, :8100) adds conversation + history endpoints
 repositories:
   - url: https://github.com/example/web-app.git
     branch: main
-  - url: git@github.com:example/billing-service.git   # SSH remote for a private repo
+  - url: git@github.com:example/billing-service.git # SSH remote for a private repo
     branch: develop
 ```
 
