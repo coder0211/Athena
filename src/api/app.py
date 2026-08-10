@@ -255,6 +255,42 @@ def delete_repo(url: str) -> dict:
     }
 
 
+@app.delete("/api/graph")
+def clear_graph() -> dict:
+    """Delete the current built graph data — the graph file, the cluster artifacts,
+    and the document passage store — returning Athena to the 'not built' state.
+
+    Leaves the inputs intact: the repo list (sources.yaml), cloned repos under
+    .sources/, uploaded document files, workspace metadata, personas, and MCP
+    config all stay, so a rebuild recreates the graph from exactly the same
+    sources. Use it to start clean without re-adding everything."""
+    import shutil
+
+    from graph import doc_store
+
+    global _engine, _engine_mtime
+
+    cleared: list[str] = []
+    if _GRAPH_PATH.exists():
+        _GRAPH_PATH.unlink()
+        cleared.append("graph")
+    cluster_dir = _GRAPH_PATH.parent / "cluster"
+    if cluster_dir.is_dir():
+        shutil.rmtree(cluster_dir, ignore_errors=True)
+        cleared.append("cluster")
+    if doc_store.passages_path().exists():
+        doc_store.clear()
+        cleared.append("passages")
+
+    # Drop the cached engine so /api/status + queries immediately see the wipe.
+    _engine = None
+    _engine_mtime = None
+
+    if not cleared:
+        raise HTTPException(404, "No graph data to clear — nothing was built yet.")
+    return {"ok": True, "cleared": cleared}
+
+
 class WorkspaceIn(BaseModel):
     repos: dict = {}
     docs: dict = {}

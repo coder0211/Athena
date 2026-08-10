@@ -185,6 +185,20 @@ main {
   margin: 8px 0;
 }
 
+/* Clear-graph action under the pipeline steps */
+.pipeline-extra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+.pipeline-hint {
+  margin: 0;
+  flex: 1;
+  min-width: 200px;
+}
+
 /* Pipeline step cards */
 .steps {
   display: flex;

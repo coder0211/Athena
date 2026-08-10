@@ -1,5 +1,5 @@
 // Fetch & Build pipeline: kick off background jobs and poll their status.
-import { $, el, escapeHtml } from "./dom.js";
+import { $, el, escapeHtml, askConfirm } from "./dom.js";
 import { api } from "./api.js";
 import { refreshStatus } from "./stats.js";
 
@@ -57,3 +57,37 @@ $("run-build").onclick = async () => {
   const { job_id } = await api.post("/api/build");
   pollJob(job_id, "Build");
 };
+
+// Clear the built graph data (graph + communities + document index). Destructive
+// and not undoable, so it's gated behind a confirm; inputs (repos, uploads) stay.
+$("clear-graph").onclick = async () => {
+  const ok = await askConfirm({
+    title: "Clear graph data",
+    message:
+      "Delete the current knowledge graph — code structure, concept communities, " +
+      "and the document index? Your repo list and uploaded files are kept, so you " +
+      "can rebuild it. This can't be undone.",
+    ok: "Clear graph",
+    danger: true,
+  });
+  if (!ok) return;
+  const btn = $("clear-graph");
+  btn.disabled = true;
+  try {
+    const r = await api.del("/api/graph");
+    refreshStatus();
+    showJobNote(`Cleared: ${(r.cleared || []).join(", ") || "nothing"} — rebuild to recreate the graph.`, "ok");
+  } catch (e) {
+    // 404 = nothing was built yet; surface the message either way.
+    showJobNote(e.message || "Could not clear the graph.", "err");
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// A one-off status line under the pipeline (reuses the job-status area).
+function showJobNote(text, kind) {
+  const note = el("div", "job");
+  note.innerHTML = `<div class="msg ${kind === "err" ? "err" : "ok"}">${escapeHtml(text)}</div>`;
+  $("job-status").prepend(note);
+}

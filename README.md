@@ -25,10 +25,12 @@ stakeholders to developers (and any custom "type" you define).
 
 - **Ask in plain language** — the Q&A agent plans, searches the graph, reads the
   actual source (and your docs), and explains a flow step by step — citing where
-  each thing lives.
+  each thing lives. When something genuinely isn't in the indexed code, it **says
+  so** instead of inventing a plausible-sounding answer.
 - **See how it got there** — a live **investigation trace** shows every tool the
   agent ran and the file/symbol it read, so claims are traceable; it collapses to a
-  one-line "Looked at N steps" you can expand.
+  one-line "Looked at N steps" you can expand. Each answer also shows the **tokens**
+  it used, so the cost of a question is never a mystery.
 - **Answer types you can extend** — built-in **Business** (non-technical, no jargon)
   and **Technical** (call paths, files, snippets), plus your own (Sales, Marketing,
   Support, …): describe the reader and Athena writes the instruction, greeting,
@@ -48,8 +50,12 @@ stakeholders to developers (and any custom "type" you define).
 - **Built for reading** — Markdown + syntax-highlighted code, rendered **Mermaid**
   diagrams (with fullscreen zoom), copy / **export to Markdown**, a `⌘/Ctrl-K`
   command palette, and English / Tiếng Việt UI + response language.
-- **Management dashboard** — add repos, build the graph, describe repos and their
-  **relations** (so cross-repo questions work), upload documents, and browse the graph.
+- **Management dashboard** — add repos, build the graph (with **live progress** as
+  it fetches, extracts, clusters, and indexes), describe repos and their
+  **relations** (so cross-repo questions work), upload documents, and browse the
+  graph. A guided **first-run checklist** walks a new install to its first answer,
+  and **Clear graph data** wipes the built graph to start over (your repos and
+  uploads stay).
 - **Saved history** — conversations persist server-side (SQLite); a sidebar lets you
   revisit, rename, and delete past chats.
 - **Structured access too** — the same graph powers a **REST API** and an **MCP
@@ -64,8 +70,10 @@ callees to keep browsing.
 <p align="center"><img src="example/code-explorer.png" alt="A technical answer citing files and symbols, with the real source of the Login component open in a side panel" width="900" /></p>
 
 **Manage it from one place.** The dashboard is where you add repositories and run
-the build pipeline, browse the documents you've indexed, map how your repos relate
-(for cross-repo answers), and connect third-party MCP tools.
+the build pipeline — with live per-stage progress, a first-run checklist for a
+fresh install, and a **Clear graph data** action to start over — browse the
+documents you've indexed, map how your repos relate (for cross-repo answers), and
+connect third-party MCP tools.
 
 <table>
   <tr>
@@ -224,7 +232,8 @@ the `/api/personas` endpoints, so an editor or agent can manage them too.
 | GET     | `/api/status`                            | graph stats, repos, whether Q&A is available  |
 | GET/PUT | `/api/sources`                           | read / write `config/sources.yaml`            |
 | POST    | `/api/fetch` · `/api/build`              | start pipeline jobs → `{job_id}`              |
-| GET     | `/api/jobs/{id}`                         | job status (`running`/`succeeded`/`failed`)   |
+| GET     | `/api/jobs/{id}`                         | job status + live stage progress              |
+| DELETE  | `/api/graph`                             | clear the built graph (keeps repos & uploads) |
 | GET     | `/api/search?q=&repo=&type=`             | symbol search                                 |
 | GET     | `/api/symbol/{id}` · `/api/impact/{id}`  | detail · blast radius                         |
 | GET     | `/api/communities?q=`                    | concept clusters                              |
