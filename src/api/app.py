@@ -92,16 +92,26 @@ _jobs_lock = threading.Lock()
 
 
 def _run_job(job_id: str, kind: str, fn) -> None:
-    result = None
+    def report(phase: str, current: int = 0, total: int = 0, detail: str = "") -> None:
+        """Live status the dashboard polls via /api/jobs/{id}. Kept small + JSON-
+        serializable so a long build shows a stage instead of a frozen spinner."""
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+            if job is not None:
+                job["progress"] = {
+                    "phase": phase,
+                    "current": current,
+                    "total": total,
+                    "detail": detail,
+                }
+
     try:
-        result = fn()
+        fn(report)  # the graph object a build returns is intentionally not stored
         status, error = "succeeded", None
     except Exception as e:  # noqa: BLE001 - report any failure to the client
         status, error = "failed", f"{type(e).__name__}: {e}"
     with _jobs_lock:
-        _jobs[job_id].update(
-            status=status, error=error, finished=time.time(), result=result
-        )
+        _jobs[job_id].update(status=status, error=error, finished=time.time())
 
 
 def _start_job(kind: str, fn) -> str:
@@ -114,6 +124,7 @@ def _start_job(kind: str, fn) -> str:
             "error": None,
             "started": time.time(),
             "finished": None,
+            "progress": None,
         }
     threading.Thread(target=_run_job, args=(job_id, kind, fn), daemon=True).start()
     return job_id
@@ -377,12 +388,16 @@ def branches(url: str) -> dict:
 # --- pipeline actions -----------------------------------------------------
 @app.post("/api/fetch")
 def start_fetch() -> dict:
-    return {"job_id": _start_job("fetch", fetch)}
+    return {"job_id": _start_job("fetch", lambda p: fetch(progress=p))}
 
 
 @app.post("/api/build")
 def start_build() -> dict:
-    return {"job_id": _start_job("build", lambda: pipeline.build(persist=True))}
+    return {
+        "job_id": _start_job(
+            "build", lambda p: pipeline.build(persist=True, progress=p)
+        )
+    }
 
 
 @app.get("/api/jobs/{job_id}")

@@ -244,15 +244,29 @@ export function pruneEdit() {
 // Footer under an answer: document sources (top) + actions regenerate/copy
 // (right). The tools Athena used are shown in the collapsible trace above the
 // answer, so they're no longer duplicated here.
-export function buildFooter(text, steps, sources) {
+export function buildFooter(text, steps, sources, usage) {
   const foot = el("div", "msg-foot");
   const srcRow = buildSources(sources);
   if (srcRow) foot.append(srcRow);
   const actions = el("div", "msg-actions");
+  const meta = usageMeta(usage);
+  if (meta) actions.append(meta); // subtle token count, left of the action buttons
   actions.append(regenButton());
   actions.append(copyButton(text)); // copy the raw answer, not the rendered HTML
   foot.append(actions);
   return foot;
+}
+
+// A quiet "~N tokens" chip so the user can see roughly what a question cost.
+// Live-only: reloaded answers don't carry usage, so it simply doesn't render.
+function usageMeta(usage) {
+  const total = usage && Number(usage.total_tokens);
+  if (!total) return null;
+  const meta = el("span", "usage-meta", `~${total.toLocaleString()} ${t().tokensLabel}`);
+  const p = Number(usage.prompt_tokens) || 0;
+  const c = Number(usage.completion_tokens) || 0;
+  if (p || c) meta.title = `${t().tokensInLabel}: ${p.toLocaleString()} · ${t().tokensOutLabel}: ${c.toLocaleString()}`;
+  return meta;
 }
 
 // Suggested follow-up questions under an answer — one-tap chips that ask the

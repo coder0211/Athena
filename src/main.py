@@ -54,8 +54,14 @@ def build(
     store_backend: str = "networkx",
     cluster: bool = True,
     with_docs: bool = True,
+    progress=None,
 ) -> KnowledgeGraph:
-    """L1–L4: extract every source repo, merge, cluster, ingest docs (+ store)."""
+    """L1–L4: extract every source repo, merge, cluster, ingest docs (+ store).
+
+    `progress(phase, current, total, detail)` is an optional status callback (the
+    API job runner passes one to drive the dashboard's live build progress); on
+    the CLI it's None and everything runs exactly as before.
+    """
     repos = source_repos()
     if not repos:
         raise SystemExit(
@@ -65,21 +71,30 @@ def build(
     for repo in repos:
         print(f"  - {repo.name}")
 
-    kg = build_workspace_graph(repos, run_tools=run_tools, cluster=cluster)
+    kg = build_workspace_graph(
+        repos, run_tools=run_tools, cluster=cluster, progress=progress
+    )
 
     # L2 documents — ingested after clustering so doc nodes don't skew the code
     # communities; bridged to the code they mention.
     if with_docs:
         from graph.merge import build_docs
 
+        if progress:
+            progress("documents", 0, 0, "")
         build_docs(kg, run_tools=run_tools)
 
     print("Unified knowledge graph:", kg.stats())
 
     if persist:
+        if progress:
+            progress("store", 0, 0, store_backend)
         store = _make_store(store_backend)
         store.load(kg)
         print(f"Persisted to {store_backend}:", store.db_path)
+
+    if progress:
+        progress("done", 0, 0, "")
 
     return kg
 

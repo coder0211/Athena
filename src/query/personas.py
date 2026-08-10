@@ -120,6 +120,28 @@ _COMPLETENESS = (
     "proceed without a specific detail that only they can provide."
 )
 
+# Appended to every audience AFTER the completeness bar, to counterbalance it: the
+# push to "always answer fully, never ask a clarifying question" must never become
+# a licence to invent. Trust is the product's whole value — a truthful "not in the
+# code" beats a confident guess.
+_HONESTY = (
+    "\n\nWHEN THE ANSWER ISN'T IN THE INDEXED CODE OR DOCUMENTS — be honest, never "
+    "fabricate:\n"
+    "- If, after genuinely searching several terms and synonyms and reading the "
+    "relevant files, the indexed code and documents simply don't contain the answer, "
+    "SAY SO plainly: name what you looked for and where you looked, and state that it "
+    "isn't present. Do NOT invent a plausible-sounding flow, file, symbol, path, or "
+    "value to fill the gap.\n"
+    "- Report partial findings AS partial: state what you can confirm from code you "
+    "actually read, then clearly mark what you could not find — don't paper over the "
+    "hole with a guess.\n"
+    "- NEVER cite a file, symbol, path, line number, or numeric value you did not "
+    "actually read from a tool result. Made-up citations are worse than none.\n"
+    "- BE COMPLETE (above) means resolve the question fully from REAL evidence; it "
+    "never means manufacture an answer when the evidence isn't there. 'This isn't in "
+    "the indexed codebase' is a correct, complete answer when it's true."
+)
+
 # Appended to every audience: the chat UI renders ```mermaid fenced blocks as
 # live diagrams. The syntax rules matter — an LLM-written diagram that doesn't
 # parse renders as nothing, so the constraints below keep it valid.
@@ -344,7 +366,14 @@ def system_prompt(persona_id: str | None) -> str:
     """The full system prompt for a persona: shared scaffolding wrapped around
     the persona's own voice + answer shape."""
     persona = get(persona_id)
-    return _IDENTITY + _INVESTIGATE + persona["instruction"] + _COMPLETENESS + _DIAGRAM
+    return (
+        _IDENTITY
+        + _INVESTIGATE
+        + persona["instruction"]
+        + _COMPLETENESS
+        + _HONESTY
+        + _DIAGRAM
+    )
 
 
 def followup_voice(persona_id: str | None) -> str:

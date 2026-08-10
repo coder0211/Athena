@@ -68,16 +68,27 @@ def build_workspace_graph(
     with_graphify_docs: bool = False,
     cluster: bool = True,
     cluster_workdir: str | Path = ".knowledge/cluster",
+    progress=None,
 ) -> KnowledgeGraph:
-    """Merge many repos into one graph, then run the L4 cluster bridge."""
+    """Merge many repos into one graph, then run the L4 cluster bridge.
+
+    `progress(phase, current, total, detail)` is an optional status callback (used
+    by the API job runner to drive the dashboard's live build progress).
+    """
     kg = KnowledgeGraph()
-    for path in repo_paths:
+    paths = list(repo_paths)
+    total = len(paths)
+    for i, path in enumerate(paths):
+        if progress:
+            progress("extract", i, total, Path(path).name)
         sub = build_repo_graph(
             path, run_tools=run_tools, with_graphify_docs=with_graphify_docs
         )
         kg.extend(sub.nodes.values(), sub.edges.values())
 
     if cluster:
+        if progress:
+            progress("cluster", total, total, "")
         n = graphify_io.cluster_graph(
             kg, workdir=cluster_workdir, run=run_tools
         )

@@ -20,12 +20,39 @@ export async function refreshStatus() {
       renderStats(g, s.built_at);
     } else {
       bar.textContent = "⚠️ Graph not built yet — add repos, then run the Pipeline.";
-      if (wrap) wrap.innerHTML = ""; // clear the shimmer
+      if (wrap) wrap.innerHTML = renderOnboarding(s); // guide the first build
     }
   } catch (e) {
     $("status-bar").textContent = "API unreachable: " + e.message;
     if (wrap) wrap.innerHTML = "";
   }
+}
+
+// First-run guide, shown in place of the (empty) overview until a graph exists.
+// Step 1 is checked off live from /api/status once a repo is configured; the
+// build steps stay open until the graph is built (which replaces this whole card).
+function renderOnboarding(s) {
+  const hasRepos = (s.repos || []).some(Boolean);
+  const step = (done, title, body) =>
+    `<li class="ob-step${done ? " done" : ""}">` +
+    `<span class="ob-check">${done ? "✓" : ""}</span>` +
+    `<div><div class="ob-t">${title}</div><div class="ob-d">${body}</div></div></li>`;
+  return (
+    `<div class="onboarding">` +
+    `<h3>Get started in 3 steps</h3>` +
+    `<p class="ob-lead">Athena has nothing to answer questions about yet — build your first knowledge graph:</p>` +
+    `<ol class="ob-steps">` +
+    step(
+      hasRepos,
+      "Add a repository",
+      hasRepos
+        ? `${(s.repos || []).filter(Boolean).length} repo(s) configured. Add more above, or continue.`
+        : "Add a Git URL in <b>Source repositories</b> above and click <b>Save</b>.",
+    ) +
+    step(false, "Fetch repos", "Run <b>1 · Fetch repos</b> to clone them into <code>.sources/</code>.") +
+    step(false, "Build the graph", "Run <b>2 · Build graph</b> to extract structure and concept communities. Then open Chat and ask a question.") +
+    `</ol></div>`
+  );
 }
 
 // Shimmer placeholder mirroring the overview (head + KPI tiles + two bar charts).

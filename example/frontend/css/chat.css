@@ -674,6 +674,15 @@
   align-items: center;
   gap: 2px;
 }
+.usage-meta {
+  color: var(--muted);
+  font-size: 11px;
+  opacity: 0.7;
+  padding: 4px 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
 .act-btn {
   display: inline-flex;
   align-items: center;

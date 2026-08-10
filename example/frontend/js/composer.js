@@ -85,6 +85,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
   let steps = [];
   let sources = [];
   let followups = [];
+  let usage = null; // token counts for this answer (shown as a subtle footer meta)
   let unavailable = null;
   let streamError = null;
 
@@ -138,6 +139,8 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
       trace.addStep(step);
     } else if (ev.followups) {
       followups = ev.followups;
+    } else if (ev.usage) {
+      usage = ev.usage;
     } else if (ev.done) {
       if (ev.steps) steps = ev.steps;
       if (ev.sources) sources = ev.sources;
@@ -224,7 +227,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
     // A user-initiated stop keeps whatever streamed so far.
     if (row) {
       trace?.finalize(steps);
-      finalizeAnswer(row, bubble, acc, steps, sources, followups);
+      finalizeAnswer(row, bubble, acc, steps, sources, followups, usage);
     } else {
       trace?.node.remove();
     }
@@ -233,7 +236,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
     // re-run it); otherwise show an error bubble with Retry.
     if (row) {
       trace?.finalize(steps);
-      finalizeAnswer(row, bubble, acc, steps, sources, followups);
+      finalizeAnswer(row, bubble, acc, steps, sources, followups, usage);
     } else {
       trace?.node.remove();
       addAssistant(t().errorPrefix + (streamFailed.message || streamFailed), null, true);
@@ -247,7 +250,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
     addAssistant(t().errorPrefix + (streamError || "empty response"), null, true);
   } else {
     trace?.finalize(steps);
-    finalizeAnswer(row, bubble, acc, steps, sources, followups);
+    finalizeAnswer(row, bubble, acc, steps, sources, followups, usage);
   }
   } finally {
     S.abort = null;
@@ -258,13 +261,13 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
 
 // Commit a completed (or stopped) answer: final markdown + diagrams, footer,
 // and any follow-up suggestions, then record it in history.
-function finalizeAnswer(row, bubble, acc, steps, sources, followups) {
+function finalizeAnswer(row, bubble, acc, steps, sources, followups, usage) {
   bubble.innerHTML = formatAnswer(acc); // final render
   announce(acc); // read the finished answer to assistive tech (once, not per token)
   enhanceCodeBlocks(bubble); // add copy buttons to fenced code blocks
   enhanceCodeRefs(bubble); // make cited symbols open the code panel
   renderMermaid(bubble); // draw any mermaid diagrams (streaming showed source)
-  row.append(buildFooter(acc, steps, sources));
+  row.append(buildFooter(acc, steps, sources, usage));
   row.append(refineRow());
   const fu = renderFollowups(followups);
   if (fu) row.append(fu);

@@ -63,6 +63,12 @@ def _gen_params() -> dict:
     return params
 
 
+# Whether this provider accepts stream_options={"include_usage": True}. Assumed
+# on; flipped off (process-wide) the first time a create rejects it, so we ask a
+# non-OpenAI backend at most once and then quietly stop reporting token counts.
+_USAGE_STREAM = {"on": True}
+
+
 def _error_hint(name: str, e: Exception) -> str:
     """Turn an LLM API exception into a clean, user-facing message (no 500s)."""
     if "RateLimit" in name:
@@ -654,8 +660,8 @@ def _stream_answer(
     # once; empty if none/unreachable, so Q&A is unaffected when MCP isn't used).
     tools = _TOOLS + mcp_bridge.get_specs()
 
-    def _create(tool_choice: str):
-        return client.chat.completions.create(
+    def _create(tool_choice: str, want_usage: bool):
+        params = dict(
             model=_model(),
             messages=messages,
             tools=tools,
@@ -663,6 +669,15 @@ def _stream_answer(
             stream=True,
             **_gen_params(),
         )
+        # OpenAI streams token counts only when explicitly asked; some OpenAI-
+        # compatible providers reject the option, so we fall back without it (and
+        # remember that, so we stop asking) — see the retry loop below.
+        if want_usage:
+            params["stream_options"] = {"include_usage": True}
+        return client.chat.completions.create(**params)
+
+    # Running token total across every model call in this answer (0 stays hidden).
+    usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
     for _ in range(max_steps):
         # Stream live only once the model has read something. Until then, buffer
@@ -677,11 +692,18 @@ def _stream_answer(
         stream = None
         last_err: Exception | None = None
         for choice in ([want, "auto"] if want != "auto" else ["auto"]):
-            try:
-                stream = _create(choice)
+            # Try with usage first; if the provider rejects stream_options, retry
+            # the same choice without it and stop asking for the rest of the process.
+            for want_usage in ([True, False] if _USAGE_STREAM["on"] else [False]):
+                try:
+                    stream = _create(choice, want_usage)
+                    break
+                except Exception as e:  # rate limits / API errors / unsupported opt
+                    last_err = e
+                    if want_usage:
+                        _USAGE_STREAM["on"] = False  # don't ask this provider again
+            if stream is not None:
                 break
-            except Exception as e:  # rate limits / API errors / unsupported choice
-                last_err = e
         if stream is None:
             name = type(last_err).__name__
             yield {"delta": _error_hint(name, last_err)}
@@ -691,6 +713,11 @@ def _stream_answer(
         content_parts: list[str] = []
         tool_calls: dict[int, dict] = {}  # index → {id, name, args}
         for chunk in stream:
+            cu = getattr(chunk, "usage", None)  # final chunk carries token counts
+            if cu:
+                usage["prompt_tokens"] += getattr(cu, "prompt_tokens", 0) or 0
+                usage["completion_tokens"] += getattr(cu, "completion_tokens", 0) or 0
+                usage["total_tokens"] += getattr(cu, "total_tokens", 0) or 0
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
@@ -731,6 +758,8 @@ def _stream_answer(
             fups = _followups(client, question, "".join(content_parts), mode, lang)
             if fups:
                 yield {"followups": fups}
+            if usage["total_tokens"]:
+                yield {"usage": usage}
             yield {"steps": steps, "sources": sources, "done": True}
             return
 
@@ -765,4 +794,6 @@ def _stream_answer(
             )
 
     yield {"delta": "(stopped: too many reasoning steps)"}
+    if usage["total_tokens"]:
+        yield {"usage": usage}
     yield {"steps": steps, "sources": sources, "done": True}

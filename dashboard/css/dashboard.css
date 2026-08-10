@@ -869,6 +869,25 @@ body.ws-fs-lock {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+.job-progress {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.job-bar {
+  margin-top: 6px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.job-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent, #d4a017);
+  transition: width 0.4s ease;
+}
 .badge {
   padding: 2px 8px;
   border-radius: 10px;
@@ -887,6 +906,67 @@ body.ws-fs-lock {
 .badge.failed {
   background: #f8514920;
   color: var(--err);
+}
+
+/* First-run onboarding guide (shown until a graph exists) */
+.onboarding {
+  margin: 20px 0;
+  padding: 20px 22px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.onboarding h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.ob-lead {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.ob-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ob-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ob-check {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.ob-step.done .ob-check {
+  border-color: var(--ok);
+  background: #3fb95020;
+  color: var(--ok);
+}
+.ob-t {
+  font-weight: 600;
+  font-size: 14px;
+}
+.ob-step.done .ob-t {
+  color: var(--muted);
+}
+.ob-d {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
 }
 
 /* Graph overview: KPI tiles + bar charts */

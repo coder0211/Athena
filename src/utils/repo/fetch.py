@@ -18,14 +18,22 @@ def read_sources(path=DEFAULT_SOURCES_PATH) -> dict:
         return yaml.safe_load(f)
 
 
-def fetch():
+def fetch(progress=None):
+    """Clone/update every configured repo into .sources/.
+
+    `progress(phase, current, total, detail)` is an optional callback the API job
+    runner uses to surface live status in the dashboard; it's a no-op on the CLI.
+    """
     repositories = read_sources()["repositories"]
     DEFAULT_SOURCES_FOLDER.mkdir(parents=True, exist_ok=True)
-    for repo in tqdm(repositories):
+    total = len(repositories)
+    for i, repo in enumerate(tqdm(repositories)):
         url = repo["url"]
         branch = repo.get("branch")
         # Derive the target folder name from the repo URL (strip .git).
         name = url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+        if progress:
+            progress("fetch", i, total, name)
         target = DEFAULT_SOURCES_FOLDER / name
         if target.exists():
             continue
@@ -39,3 +47,5 @@ def fetch():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+    if progress:
+        progress("fetch", total, total, "")
