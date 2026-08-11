@@ -227,6 +227,16 @@ main {
 .step-card:active {
   transform: translateY(1px);
 }
+.step-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.step-card:disabled:hover {
+  border-color: var(--border);
+}
+.step-card:disabled:active {
+  transform: none;
+}
 .step-n {
   flex: none;
   width: 26px;

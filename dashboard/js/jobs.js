@@ -28,7 +28,7 @@ function progressLine(p) {
   return `<div class="job-progress">${escapeHtml(label)}${count}${detail}</div>${bar}`;
 }
 
-async function pollJob(jobId, kind) {
+function pollJob(jobId, kind, onDone) {
   const box = $("job-status");
   const card = el("div", "job");
   box.prepend(card);
@@ -44,19 +44,38 @@ async function pollJob(jobId, kind) {
       (j.status === "running" ? progressLine(j.progress) : "") +
       (j.error ? `<div class="msg err">${escapeHtml(j.error)}</div>` : "");
     if (j.status === "running") setTimeout(tick, 1000);
-    else refreshStatus();
+    else {
+      refreshStatus();
+      onDone?.();
+    }
   };
   tick();
 }
 
-$("run-fetch").onclick = async () => {
-  const { job_id } = await api.post("/api/fetch");
-  pollJob(job_id, "Fetch");
-};
-$("run-build").onclick = async () => {
-  const { job_id } = await api.post("/api/build");
-  pollJob(job_id, "Build");
-};
+// Run a pipeline step: disable BOTH step buttons for the duration so a second
+// click can't kick off a duplicate/overlapping job, and show a "…" busy label
+// on the one that's running. Buttons are restored when the job settles or fails.
+async function runStep(btn, endpoint, kind) {
+  const steps = [$("run-fetch"), $("run-build")];
+  const label = btn.querySelector(".step-t");
+  const original = label?.textContent;
+  steps.forEach((b) => (b.disabled = true));
+  if (label) label.textContent = `${original}…`;
+  const restore = () => {
+    steps.forEach((b) => (b.disabled = false));
+    if (label) label.textContent = original;
+  };
+  try {
+    const { job_id } = await api.post(endpoint);
+    pollJob(job_id, kind, restore);
+  } catch (e) {
+    showJobNote(e.message || `Could not start ${kind}.`, "err");
+    restore();
+  }
+}
+
+$("run-fetch").onclick = () => runStep($("run-fetch"), "/api/fetch", "Fetch");
+$("run-build").onclick = () => runStep($("run-build"), "/api/build", "Build");
 
 // Clear the built graph data (graph + communities + document index). Destructive
 // and not undoable, so it's gated behind a confirm; inputs (repos, uploads) stay.
