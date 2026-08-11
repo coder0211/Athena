@@ -3,6 +3,7 @@
 import { $, el, escapeHtml, askConfirm } from "./dom.js";
 import { api } from "./api.js";
 import { refreshStatus } from "./stats.js";
+import { setDirty } from "./dirty.js";
 
 // Searchable branch combobox: an input with a filtered, theme-matched dropdown.
 // Handles 200+ branches gracefully (type to filter) and keeps an arbitrary value.
@@ -35,6 +36,9 @@ function makeBranchCombo(current = "main") {
         e.preventDefault(); // fire before input blur
         input.value = b;
         list.hidden = true;
+        // 'change' (not 'input') so the combo's own render doesn't reopen the
+        // list; a delegated listener on #repo-rows marks the list dirty.
+        input.dispatchEvent(new Event("change", { bubbles: true }));
       };
       list.append(opt);
     });
@@ -62,6 +66,17 @@ function makeBranchCombo(current = "main") {
   };
 }
 
+// Loose Git-URL check for inline feedback (not a hard gate — Save still works).
+// Accepts scp-style (git@host:owner/repo), and http(s)/git/ssh URLs. Empty is
+// treated as neutral (a blank starter row shouldn't look like an error).
+function isValidRepoUrl(v) {
+  v = (v || "").trim();
+  if (!v) return true;
+  if (/^[\w.-]+@[\w.-]+:.+/.test(v)) return true; // git@github.com:owner/repo.git
+  if (/^(https?|git|ssh):\/\/\S+$/.test(v)) return true; // https:// git:// ssh://
+  return false;
+}
+
 async function loadBranches(url, combo) {
   url = url.trim();
   if (!url) return;
@@ -87,6 +102,14 @@ function repoRow(url = "", branch = "main", saved = false) {
   const u = el("input", "repo-url");
   u.value = url;
   u.placeholder = "git@… or https://….git";
+  // Inline URL validity feedback (red border + tooltip) as the user types/blurs.
+  const validate = () => {
+    const bad = !isValidRepoUrl(u.value);
+    u.classList.toggle("invalid", bad);
+    u.title = bad ? "Doesn't look like a Git URL — try https://…, git@host:owner/repo, or ssh://…" : "";
+  };
+  u.addEventListener("input", validate);
+  u.addEventListener("blur", validate);
 
   const combo = makeBranchCombo(branch);
   const refresh = el("button", "icon-btn", "↻");
@@ -102,7 +125,10 @@ function repoRow(url = "", branch = "main", saved = false) {
   del.onclick = () => removeRow(row);
 
   row.append(idx, u, combo.wrap, refresh, del);
-  if (url) load(); // auto-load branches when the URL is already known
+  if (url) {
+    validate();
+    load(); // auto-load branches when the URL is already known
+  }
   return row;
 }
 
@@ -180,6 +206,12 @@ async function loadMore() {
   }
 }
 
+// Any edit to the repo list (typing a URL/branch, picking a branch, add or remove
+// a row) makes the list dirty until Save persists it. A delegated listener catches
+// typing ('input') and committed edits / branch picks ('change').
+$("repo-rows").addEventListener("input", () => setDirty("repos", true));
+$("repo-rows").addEventListener("change", () => setDirty("repos", true));
+
 export async function loadRepos() {
   const rows = $("repo-rows");
   rows.innerHTML = "";
@@ -195,58 +227,67 @@ export async function loadRepos() {
   }
   renumber();
   renderMore();
+  setDirty("repos", false); // freshly loaded from the server
 }
 
 $("add-repo").onclick = () => {
   const row = repoRow();
   $("repo-rows").append(row);
   renumber();
+  setDirty("repos", true);
   row.querySelector(".repo-url")?.focus();
   row.scrollIntoView({ block: "nearest" });
 };
 
 $("save-repos").onclick = async () => {
   const msg = $("repos-msg");
-  // Save replaces the whole file, so pull in any not-yet-loaded pages first —
-  // otherwise repos the user never scrolled to would be dropped.
-  if (serverLoaded < total) {
-    msg.textContent = "Loading remaining repos before save…";
-    msg.className = "msg";
-    try {
-      const resp = await api.get(`/api/sources?offset=${serverLoaded}`);
-      (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch, true)));
-      serverLoaded += (resp.repositories || []).length;
-      total = resp.total ?? total;
-      renumber();
-      renderMore();
-    } catch (e) {
-      msg.textContent = "Couldn't load all repos before saving: " + e.message;
-      msg.className = "msg err";
-      return;
-    }
-  }
-  const repositories = [...$("repo-rows").children]
-    .map((tr) => ({
-      url: tr.querySelector(".repo-url").value.trim(),
-      branch: (tr.querySelector(".repo-branch").value || "main").trim() || "main",
-    }))
-    .filter((r) => r.url);
+  const btn = $("save-repos");
+  btn.disabled = true; // guard against a double-submit while the PUT is in flight
   try {
-    const r = await api.put("/api/sources", { repositories });
-    msg.textContent = `Saved ${r.count} repos`;
-    msg.className = "msg ok";
-    total = repositories.length;
-    serverLoaded = repositories.length;
-    // Now persisted — mark every row saved so its ✕ does a real server-side delete.
-    [...$("repo-rows").children].forEach((tr) => {
-      const u = tr.querySelector(".repo-url").value.trim();
-      if (u) tr.dataset.savedUrl = u;
-      else delete tr.dataset.savedUrl;
-    });
-    renderMore();
-    refreshStatus();
-  } catch (e) {
-    msg.textContent = e.message;
-    msg.className = "msg err";
+    // Save replaces the whole file, so pull in any not-yet-loaded pages first —
+    // otherwise repos the user never scrolled to would be dropped.
+    if (serverLoaded < total) {
+      msg.textContent = "Loading remaining repos before save…";
+      msg.className = "msg";
+      try {
+        const resp = await api.get(`/api/sources?offset=${serverLoaded}`);
+        (resp.repositories || []).forEach((r) => $("repo-rows").append(repoRow(r.url, r.branch, true)));
+        serverLoaded += (resp.repositories || []).length;
+        total = resp.total ?? total;
+        renumber();
+        renderMore();
+      } catch (e) {
+        msg.textContent = "Couldn't load all repos before saving: " + e.message;
+        msg.className = "msg err";
+        return;
+      }
+    }
+    const repositories = [...$("repo-rows").children]
+      .map((tr) => ({
+        url: tr.querySelector(".repo-url").value.trim(),
+        branch: (tr.querySelector(".repo-branch").value || "main").trim() || "main",
+      }))
+      .filter((r) => r.url);
+    try {
+      const r = await api.put("/api/sources", { repositories });
+      msg.textContent = `Saved ${r.count} repos`;
+      msg.className = "msg ok";
+      total = repositories.length;
+      serverLoaded = repositories.length;
+      setDirty("repos", false);
+      // Now persisted — mark every row saved so its ✕ does a real server-side delete.
+      [...$("repo-rows").children].forEach((tr) => {
+        const u = tr.querySelector(".repo-url").value.trim();
+        if (u) tr.dataset.savedUrl = u;
+        else delete tr.dataset.savedUrl;
+      });
+      renderMore();
+      refreshStatus();
+    } catch (e) {
+      msg.textContent = e.message;
+      msg.className = "msg err";
+    }
+  } finally {
+    btn.disabled = false;
   }
 };

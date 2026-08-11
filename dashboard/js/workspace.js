@@ -4,6 +4,7 @@
 // persist to workspace.yaml.
 import { $, el, escapeHtml } from "./dom.js";
 import { api } from "./api.js";
+import { setDirty } from "./dirty.js";
 
 let WS = {
   repos: {}, docs: {}, relations: [],
@@ -579,6 +580,7 @@ function addNode(it) {
 // --- save ----------------------------------------------------------------
 function markDirty() {
   dirty = true;
+  setDirty("workspace", true);
   const msg = $("ws-msg");
   msg.textContent = "Unsaved changes";
   msg.className = "msg";
@@ -614,6 +616,7 @@ async function save() {
   try {
     const r = await api.put("/api/workspace", { repos, docs, relations });
     dirty = false;
+    setDirty("workspace", false);
     msg.textContent = `Saved ${r.repos} repos, ${r.docs} docs, ${r.relations} links`;
     msg.className = "msg ok";
   } catch (e) {
@@ -634,6 +637,8 @@ export async function loadWorkspace() {
   buildModel();
   render();
   renderAddMenu();
+  dirty = false;
+  setDirty("workspace", false); // a fresh load starts clean
 }
 
 $("ws-save").onclick = save;

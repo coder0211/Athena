@@ -2,6 +2,7 @@
 // saving, each configured server is shown as a box with its live tools/prompts.
 import { $, el, escapeHtml } from "./dom.js";
 import { api } from "./api.js";
+import { setDirty } from "./dirty.js";
 
 const STARTER = '{\n  "mcpServers": {}\n}\n';
 
@@ -61,6 +62,7 @@ async function loadEditor() {
   }
   $("mcp-json").value = content;
   paint();
+  setDirty("mcp", false); // in sync with the server after a load
 }
 
 // Pretty-print the JSON in place. Returns true on success.
@@ -147,7 +149,10 @@ async function loadServers() {
 
 // --- editor events ---
 const ta = $("mcp-json");
-ta.addEventListener("input", paint);
+ta.addEventListener("input", () => {
+  paint();
+  setDirty("mcp", true);
+});
 ta.addEventListener("scroll", () => {
   syncScroll();
   updateActiveLine();
@@ -168,13 +173,18 @@ $("mcp-format").onclick = () => formatJson(false);
 
 $("mcp-save").onclick = async () => {
   formatJson(true); // auto-format on save (no-op if invalid — backend reports it)
+  const btn = $("mcp-save");
+  btn.disabled = true; // guard against a double-submit while the PUT is in flight
   setMsg("Saving…", "");
   try {
     const r = await api.put("/api/mcp/config", { content: ta.value });
+    setDirty("mcp", false);
     setMsg(`Saved ${r.servers} server(s)`, "ok");
     loadServers(); // re-discover tools/prompts with the new config
   } catch (e) {
     setMsg(e.message, "err"); // JSON / validation error from the backend
+  } finally {
+    btn.disabled = false;
   }
 };
 $("mcp-refresh").onclick = loadServers;

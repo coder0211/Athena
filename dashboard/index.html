@@ -20,16 +20,20 @@
       <div id="status-bar" class="status-bar">loading…</div>
     </header>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="repos">Repositories</button>
-      <button class="tab" data-tab="documents">Documents</button>
-      <button class="tab" data-tab="workspace">Workspace</button>
-      <button class="tab" data-tab="mcp">MCP</button>
+    <nav class="tabs" role="tablist" aria-label="Dashboard sections">
+      <button class="tab active" data-tab="repos" role="tab" id="tab-repos"
+              aria-controls="repos" aria-selected="true">Repositories</button>
+      <button class="tab" data-tab="documents" role="tab" id="tab-documents"
+              aria-controls="documents" aria-selected="false" tabindex="-1">Documents</button>
+      <button class="tab" data-tab="workspace" role="tab" id="tab-workspace"
+              aria-controls="workspace" aria-selected="false" tabindex="-1">Workspace</button>
+      <button class="tab" data-tab="mcp" role="tab" id="tab-mcp"
+              aria-controls="mcp" aria-selected="false" tabindex="-1">MCP</button>
     </nav>
 
     <main>
       <!-- Repositories -->
-      <section id="repos" class="panel active">
+      <section id="repos" class="panel active" role="tabpanel" aria-labelledby="tab-repos" tabindex="0">
         <h2>Source repositories</h2>
         <p class="hint">These are cloned into <code>.sources/</code> and indexed. One row per repo.</p>
         <div class="repo-head">
@@ -42,7 +46,7 @@
         <div id="repo-more" class="repo-more"></div>
         <div class="row-actions">
           <button id="add-repo" class="btn">+ Add repository</button>
-          <button id="save-repos" class="btn primary">Save</button>
+          <button id="save-repos" class="btn primary" data-dirty-for="repos">Save</button>
           <span id="repos-msg" class="msg"></span>
         </div>
 
@@ -72,7 +76,7 @@
       </section>
 
       <!-- Documents -->
-      <section id="documents" class="panel">
+      <section id="documents" class="panel" role="tabpanel" aria-labelledby="tab-documents" tabindex="0">
         <h2>Documents</h2>
         <p class="hint">
           Index non-code knowledge — specs, PDFs, spreadsheets (<span id="docs-supported">docx, pdf, csv, xls…</span>).
@@ -114,7 +118,7 @@
       </section>
 
       <!-- Workspace -->
-      <section id="workspace" class="panel">
+      <section id="workspace" class="panel" role="tabpanel" aria-labelledby="tab-workspace" tabindex="0">
         <h2>Workspace</h2>
         <p class="hint">
           A map of your system: each repository or document is a node. Drag nodes to arrange them, drag from a node's
@@ -132,7 +136,7 @@
             <button id="ws-full" class="btn small" type="button" title="Toggle full screen">Full screen</button>
             <span class="ws-spacer"></span>
             <span id="ws-msg" class="msg"></span>
-            <button id="ws-save" class="btn small primary" type="button">Save</button>
+            <button id="ws-save" class="btn small primary" type="button" data-dirty-for="workspace">Save</button>
           </div>
 
           <div id="ws-canvas-wrap" class="ws-canvas-wrap">
@@ -156,7 +160,7 @@
       </section>
 
       <!-- MCP -->
-      <section id="mcp" class="panel">
+      <section id="mcp" class="panel" role="tabpanel" aria-labelledby="tab-mcp" tabindex="0">
         <h2>MCP servers</h2>
         <p class="hint">
           Connect third-party <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">MCP</a> servers to
@@ -173,7 +177,7 @@
             <span class="ws-spacer"></span>
             <button id="mcp-format" class="btn small" type="button">Format</button>
             <span id="mcp-msg" class="msg"></span>
-            <button id="mcp-save" class="btn small primary" type="button">Save</button>
+            <button id="mcp-save" class="btn small primary" type="button" data-dirty-for="mcp">Save</button>
           </div>
           <div class="mcp-code">
             <div id="mcp-active" class="mcp-active-line" aria-hidden="true"></div>

@@ -125,6 +125,14 @@ main {
   color: var(--text);
   font-size: 13px;
 }
+/* Inline validity feedback for a malformed Git URL (see repos.js). */
+.repo-row input.repo-url.invalid {
+  border-color: var(--err);
+}
+.repo-row input.repo-url.invalid:focus {
+  outline: none;
+  border-color: var(--err);
+}
 
 /* Searchable branch combobox */
 .combo {

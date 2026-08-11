@@ -28,10 +28,19 @@ function progressLine(p) {
   return `<div class="job-progress">${escapeHtml(label)}${count}${detail}</div>${bar}`;
 }
 
+// Keep the job feed from growing unbounded over a long session: newest first,
+// at most MAX_JOBS cards retained.
+const MAX_JOBS = 5;
+function trimJobs() {
+  const box = $("job-status");
+  while (box.children.length > MAX_JOBS) box.lastElementChild.remove();
+}
+
 function pollJob(jobId, kind, onDone) {
   const box = $("job-status");
   const card = el("div", "job");
   box.prepend(card);
+  trimJobs();
   const tick = async () => {
     const j = await api.get("/api/jobs/" + jobId);
     const spin = j.status === "running" ? '<span class="spinner"></span>' : "";
@@ -109,4 +118,5 @@ function showJobNote(text, kind) {
   const note = el("div", "job");
   note.innerHTML = `<div class="msg ${kind === "err" ? "err" : "ok"}">${escapeHtml(text)}</div>`;
   $("job-status").prepend(note);
+  trimJobs();
 }

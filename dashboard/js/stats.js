@@ -2,6 +2,16 @@
 import { $, el, escapeHtml } from "./dom.js";
 import { api } from "./api.js";
 
+// Open Chat leads nowhere useful until a graph exists; dim it and explain why
+// so first-run users don't land in an empty chat.
+function setChatEnabled(built) {
+  const chat = document.querySelector(".open-chat");
+  if (!chat) return;
+  chat.classList.toggle("is-disabled", !built);
+  chat.setAttribute("aria-disabled", built ? "false" : "true");
+  chat.title = built ? "" : "Build the knowledge graph first — there's nothing to chat about yet.";
+}
+
 export async function refreshStatus() {
   const wrap = $("graph-stats");
   // Shimmer on the first load, while /api/status is in flight.
@@ -9,6 +19,7 @@ export async function refreshStatus() {
   try {
     const s = await api.get("/api/status");
     const bar = $("status-bar");
+    setChatEnabled(!!s.built);
     if (s.built) {
       const g = s.graph;
       const docs = g.node_types?.Document || 0;
@@ -24,6 +35,7 @@ export async function refreshStatus() {
     }
   } catch (e) {
     $("status-bar").textContent = "API unreachable: " + e.message;
+    setChatEnabled(false);
     if (wrap) wrap.innerHTML = "";
   }
 }

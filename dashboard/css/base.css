@@ -87,6 +87,18 @@ code {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Link-buttons (e.g. Open Chat) can't use :disabled; JS toggles this class and
+   guards the click. pointer-events stays on so the explanatory tooltip shows. */
+.btn.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn.is-disabled:hover {
+  border-color: var(--border);
+}
+a.btn.primary.is-disabled:hover {
+  background: var(--accent);
+}
 a.btn {
   text-decoration: none;
   display: inline-flex;
@@ -95,6 +107,17 @@ a.btn {
 .btn.small {
   padding: 5px 10px;
   font-size: 13px;
+}
+/* Unsaved-changes dot on a Save control (set via js/dirty.js). */
+.btn.is-dirty::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 7px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .msg {
