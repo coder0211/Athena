@@ -9,6 +9,7 @@ class ConversationCreate(BaseModel):
     title: str = "New chat"
     mode: str = "business"  # 'business' | 'technical'
     lang: str = "en"  # 'en' | 'vi'
+    agent: str = ""  # optional agent id the chat was started with
 
 
 class ConversationRename(BaseModel):
@@ -25,5 +26,6 @@ class AskStreamRequest(BaseModel):
     scope: dict = {}  # {repos: [...], symbols: [...]}
     mode: str = "business"
     lang: str = "en"
+    agent: str = ""  # optional agent id — applies a saved persona + scope + toolset
     regenerate: bool = False  # replace the last answer instead of adding a new turn
     edit: bool = False  # with regenerate: also rewrite the last user turn to `question`

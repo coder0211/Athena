@@ -470,6 +470,262 @@ main {
   white-space: nowrap;
 }
 
+/* --- Agents --- */
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+.agent-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.agent-card-main {
+  flex: 1;
+  min-width: 0;
+}
+.agent-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.agent-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.agent-desc {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.agent-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.agent-badge {
+  font-size: 11px;
+  border-radius: 5px;
+  padding: 1px 7px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  white-space: nowrap;
+}
+.agent-badge.subtle {
+  border-color: var(--border);
+  color: var(--muted);
+}
+.agent-card-acts {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+/* Editor */
+.agent-editor[hidden] {
+  display: none;
+}
+.agent-editor {
+  margin-top: 14px;
+  padding: 16px 18px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+}
+.agent-editor-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+.agent-field {
+  margin-bottom: 12px;
+}
+.agent-field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.agent-field-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.agent-input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.agent-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+/* A <select> styled like the text inputs but with a clear dropdown chevron, so
+   it reads as a picker rather than a plain field. */
+select.agent-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a97a5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.agent-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+}
+.agent-num {
+  width: 100%;
+}
+/* Model / temperature / max-steps side by side, wrapping on narrow screens. */
+.agent-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.agent-row .agent-field {
+  margin-bottom: 0;
+}
+.agent-row {
+  margin-bottom: 12px;
+}
+/* The model row (model / temperature / max-steps) gets three columns. */
+.agent-row:has(.agent-num) {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+/* Checkbox groups (scope / tools / MCP) */
+.agent-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+.agent-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.agent-check input {
+  accent-color: var(--accent);
+}
+.agent-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* Wizard steps + explicit scope/tools toggles */
+.agent-editor [hidden] {
+  display: none !important;
+}
+.agent-step-head {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.agent-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agent-toggle-radios {
+  display: flex;
+  gap: 8px;
+}
+.agent-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  font-size: 12.5px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.agent-radio input {
+  accent-color: var(--accent);
+  margin: 0;
+}
+/* Highlight the picked radio so the active choice reads at a glance. */
+.agent-radio:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.agent-advanced {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--panel-2);
+}
+.agent-advanced[open] {
+  padding-bottom: 12px;
+}
+.agent-advanced-summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  list-style-position: inside;
+}
+.agent-advanced-summary:hover {
+  color: var(--text);
+}
+
+/* Voice editor: generate button + refine-button rows */
+.voice-gen-row {
+  margin: -4px 0 12px;
+}
+.voice-refines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.voice-refine-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 640px) {
+  .voice-refine-row {
+    grid-template-columns: 1fr auto;
+  }
+  .agent-row,
+  .agent-row:has(.agent-num) {
+    grid-template-columns: 1fr;
+  }
+  .agent-card {
+    flex-direction: column;
+  }
+}
+
 /* Workspace */
 .ws-section-title {
   display: flex;

@@ -5,6 +5,8 @@ import { refreshStatus } from "./stats.js";
 import { loadRepos } from "./repos.js";
 import { loadWorkspace } from "./workspace.js";
 import { loadDocs } from "./docs.js";
+import { loadVoices } from "./voices.js";
+import { loadAgents } from "./agents.js";
 import { loadMcp, refreshMcpServers } from "./mcp.js";
 import "./jobs.js"; // imported for its button wiring (Fetch / Build)
 
@@ -24,6 +26,8 @@ function activateTab(name, { push = true } = {}) {
   document.querySelectorAll(".panel").forEach((x) => x.classList.toggle("active", x.id === name));
   if (push && location.hash.slice(1) !== name) history.replaceState(null, "", `#${name}`);
   if (name === "mcp") refreshMcpServers(); // discover servers lazily
+  if (name === "voices") loadVoices(); // refresh the voice library lazily
+  if (name === "agents") loadAgents(); // refresh agents + their building blocks lazily
 }
 
 const tabEls = [...document.querySelectorAll(".tab")];

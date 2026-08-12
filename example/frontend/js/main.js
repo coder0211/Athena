@@ -5,7 +5,8 @@ import { S } from "./state.js";
 import { apiGet } from "./api.js";
 import { t } from "./i18n.js";
 import { renderEmpty } from "./messages.js";
-import { applyModeTheme, setHeaderTitle, initPersonaPicker, loadPersonas, applyPersonaI18n } from "./mode.js";
+import { applyModeTheme, setHeaderTitle, loadPersonas } from "./mode.js";
+import { initAgentPicker, loadAgents, refreshAgentButton, renderAgentMenu } from "./agent.js";
 import { renderScope } from "./scope.js";
 import { loadConversations, newChat, filterConversations } from "./conversations.js";
 import { send, autoGrow, stopGeneration } from "./composer.js";
@@ -100,9 +101,9 @@ window.addEventListener("resize", () => {
   $("sidebar").classList.toggle("collapsed", m);
 });
 
-// --- Answer type (persona) picker ---
+// --- Agent picker (the agent carries the answer voice) ---
 applyModeTheme();
-initPersonaPicker();
+initAgentPicker();
 
 // --- response language: whole UI follows the choice ---
 $("lang-select").value = S.lang;
@@ -116,7 +117,8 @@ $("lang-select").onchange = () => {
 function applyLang() {
   document.documentElement.lang = S.lang;
   const s = t();
-  applyPersonaI18n(); // re-skin the type picker menu + create/edit modal
+  renderAgentMenu(); // re-skin the agent picker menu (labels are language-driven)
+  refreshAgentButton();
   $("sb-new").textContent = "+ " + s.newChat;
   if (!S.conversationId) setHeaderTitle(null); // keep the default label localized
   if (!S.busy) $("send").textContent = s.send; // (while busy it shows the Stop label)
@@ -165,6 +167,7 @@ async function init() {
     /* MCP optional */
   }
   await loadPersonas(); // answer "types" (built-in + custom) for the picker
+  await loadAgents(); // saved agents for the header picker (after personas: needs their labels)
   renderScope();
   applyLang();
   loadConversations(); // populate the history sidebar

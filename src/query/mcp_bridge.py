@@ -267,6 +267,42 @@ def get_specs() -> list[dict]:
     return _cache["specs"]
 
 
+def get_specs_for(server_names: list[str] | None) -> list[dict]:
+    """MCP function specs limited to the named servers, for per-agent tool
+    allow-listing. ``None`` → every server's tools (legacy behaviour); ``[]`` →
+    none; otherwise only tools whose server name is in the list."""
+    if server_names is None:
+        return get_specs()
+    allowed = set(server_names)
+    if not allowed:
+        return []
+    try:
+        _refresh()
+    except Exception:  # noqa: BLE001 — never break Q&A over MCP discovery
+        return []
+    out = []
+    for spec in _cache["specs"]:
+        route = _cache["routes"].get(spec["function"]["name"])
+        if route and route[0].get("name") in allowed:
+            out.append(spec)
+    return out
+
+
+def server_names() -> list[str]:
+    """Names of enabled MCP servers that discovered at least one tool — the set an
+    agent can grant tools from."""
+    try:
+        _refresh()
+    except Exception:  # noqa: BLE001
+        return []
+    names: list[str] = []
+    for route in _cache["routes"].values():
+        n = route[0].get("name")
+        if n and n not in names:
+            names.append(n)
+    return names
+
+
 def is_mcp_tool(name: str) -> bool:
     return name.startswith(_PREFIX)
 

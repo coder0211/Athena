@@ -78,7 +78,7 @@ def _sse(obj: dict) -> str:
 @app.post("/api/conversations")
 async def create_conversation(body: ConversationCreate) -> dict:
     return await run_in_threadpool(
-        db.create_conversation, body.title, body.mode, body.lang, USER
+        db.create_conversation, body.title, body.mode, body.lang, USER, body.agent
     )
 
 
@@ -122,7 +122,7 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
         cid, is_new = req.conversation_id, False
     else:
         conv = await run_in_threadpool(
-            db.create_conversation, "New chat", req.mode, req.lang, USER
+            db.create_conversation, "New chat", req.mode, req.lang, USER, req.agent
         )
         cid, is_new = conv["id"], True
 
@@ -156,6 +156,7 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
         "scope": req.scope,
         "mode": req.mode,
         "lang": req.lang,
+        "agent": req.agent,
     }
     client: httpx.AsyncClient = request.app.state.http
 
@@ -250,6 +251,18 @@ async def proxy_personas_post(request: Request) -> Response:
 @app.delete("/api/personas/{persona_id}")
 async def proxy_personas_delete(persona_id: str, request: Request) -> Response:
     return await _proxy("DELETE", f"personas/{persona_id}", request)
+
+
+# --- agent management — pass through to the graph API ---------------------
+# (GET /api/agents and /api/agents/tools are covered by proxy_get below.)
+@app.post("/api/agents")
+async def proxy_agents_post(request: Request) -> Response:
+    return await _proxy("POST", "agents", request)
+
+
+@app.delete("/api/agents/{agent_id}")
+async def proxy_agents_delete(agent_id: str, request: Request) -> Response:
+    return await _proxy("DELETE", f"agents/{agent_id}", request)
 
 
 # --- pass-through to the upstream graph API for read endpoints ------------

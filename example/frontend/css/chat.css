@@ -1215,6 +1215,96 @@
   line-height: 1;
 }
 
+/* When an agent governs the answer type, the mode picker steps aside. */
+.mode-picker.governed .mode-picker-btn {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.mode-picker.governed .mode-picker-caret {
+  display: none;
+}
+
+/* Agent picker (header): selects a saved agent; menu reuses .mode-menu chrome. */
+.agent-picker {
+  position: relative;
+}
+.agent-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 5px 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.agent-picker-btn:hover {
+  border-color: var(--mode-send, var(--accent));
+}
+.agent-picker-icon {
+  color: var(--muted);
+  flex: none;
+}
+.agent-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* An active agent tints the picker so it reads as "on". */
+.agent-picker.has-agent .agent-picker-btn {
+  border-color: var(--mode-send, var(--accent));
+  color: var(--mode-send, var(--accent));
+}
+.agent-picker.has-agent .agent-picker-icon {
+  color: var(--mode-send, var(--accent));
+}
+.agent-picker.locked .agent-picker-btn {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.agent-picker.locked .mode-picker-caret {
+  display: none;
+}
+.agent-menu-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.agent-menu-item:hover {
+  background: var(--panel-2);
+}
+.agent-menu-item.active {
+  background: var(--mode-tint);
+}
+.agent-menu-text {
+  min-width: 0;
+}
+.agent-menu-label {
+  display: block;
+  font-size: 13.5px;
+  color: var(--text);
+  font-weight: 500;
+}
+.agent-menu-desc {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-menu-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* Create / edit answer-type modal */
 .persona-modal {
   position: fixed;

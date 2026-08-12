@@ -21,7 +21,8 @@ import {
   pruneRefine,
   hideEmpty,
 } from "./messages.js";
-import { lockMode, setHeaderTitle } from "./mode.js";
+import { setHeaderTitle } from "./mode.js";
+import { lockAgent } from "./agent.js";
 import { loadConversations } from "./conversations.js";
 import { announce } from "./toast.js";
 
@@ -35,7 +36,7 @@ export async function send(text) {
   const q = text.trim();
   if (!q || S.busy) return;
   hideEmpty();
-  lockMode(); // this turn fixes the mode for the rest of the conversation
+  lockAgent(); // this turn fixes the agent (voice + scope + tools) for the conversation
   // Expand each tagged folder into the documents under it (by path prefix) and
   // merge with explicitly tagged docs, de-duped by id — the backend scope only
   // speaks documents, so a folder is just a convenient way to select a subtree.
@@ -158,6 +159,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
         conversation_id: S.conversationId,
         scope,
         mode: S.mode,
+        agent: S.agent,
         lang: S.lang,
         regenerate: regen,
         edit,

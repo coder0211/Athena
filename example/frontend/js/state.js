@@ -8,8 +8,11 @@ export const S = {
   conversationId: null, // current conversation on the backend (null = not created yet)
   busy: false,
   mode: localStorage.getItem("athena_mode") || "business", // persona id (answer "type")
+  agent: localStorage.getItem("athena_agent") || "", // selected agent id ("" = none)
+  agentLocked: false, // once a conversation has turns, the agent is fixed for it
   lang: savedLang === "en" || savedLang === "vi" ? savedLang : "en",
   PERSONAS: [], // answer "types": [{id, label, description, icon, instruction, greeting, suggestions, builtin}]
+  AGENTS: [], // saved agents: [{id, label, description, persona, scope, tools, model}]
   REPOS: [], // repo names, for @ mentions
   REPO_META: {}, // {name: {description, role, tags}} for @ mention hints
   DOCS: [], // [{id, name, file_type, sections}] ingested documents, for @ mentions
@@ -22,7 +25,6 @@ export const S = {
   mention: null, // active mention being typed: {type, start, query}
   mentionItems: [],
   mentionActive: -1,
-  modeLocked: false,
   lastRequest: null, // {question, scope} — replayed by regenerate
   lastUserText: "", // last question text — recalled by the ↑ shortcut on an empty composer
   abort: null, // AbortController for the in-flight answer (Stop button)

@@ -27,6 +27,10 @@
               aria-controls="documents" aria-selected="false" tabindex="-1">Documents</button>
       <button class="tab" data-tab="workspace" role="tab" id="tab-workspace"
               aria-controls="workspace" aria-selected="false" tabindex="-1">Workspace</button>
+      <button class="tab" data-tab="voices" role="tab" id="tab-voices"
+              aria-controls="voices" aria-selected="false" tabindex="-1">Voices</button>
+      <button class="tab" data-tab="agents" role="tab" id="tab-agents"
+              aria-controls="agents" aria-selected="false" tabindex="-1">Agents</button>
       <button class="tab" data-tab="mcp" role="tab" id="tab-mcp"
               aria-controls="mcp" aria-selected="false" tabindex="-1">MCP</button>
     </nav>
@@ -157,6 +161,39 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- Voices (personas) -->
+      <section id="voices" class="panel" role="tabpanel" aria-labelledby="tab-voices" tabindex="0">
+        <h2>Voices</h2>
+        <p class="hint">
+          A <b>voice</b> decides how an answer reads — its tone, structure, and who it's written
+          for (Business, Technical, or any custom audience you add). Voices are the building blocks
+          <b>agents</b> speak in; describe a reader and Athena drafts the instruction for you.
+        </p>
+        <div class="ws-section-title">
+          Your voices <span class="ws-sub" id="voice-count"></span>
+          <button id="voice-new" class="btn small primary" type="button">+ New voice</button>
+        </div>
+        <div id="voice-list" class="agent-list"></div>
+        <div id="voice-editor" class="agent-editor" hidden></div>
+      </section>
+
+      <!-- Agents -->
+      <section id="agents" class="panel" role="tabpanel" aria-labelledby="tab-agents" tabindex="0">
+        <h2>Agents</h2>
+        <p class="hint">
+          An agent bundles a <b>persona</b> (voice &amp; answer shape), a <b>knowledge scope</b>
+          (which repositories and documents it looks at), an <b>allowed toolset</b> (graph tools +
+          MCP servers), and <b>model settings</b> into one named configuration. Pick an agent in
+          chat to apply the whole setup at once.
+        </p>
+        <div class="ws-section-title">
+          Your agents <span class="ws-sub" id="agent-count"></span>
+          <button id="agent-new" class="btn small primary" type="button">+ New agent</button>
+        </div>
+        <div id="agent-list" class="agent-list"></div>
+        <div id="agent-editor" class="agent-editor" hidden></div>
       </section>
 
       <!-- MCP -->

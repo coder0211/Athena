@@ -67,6 +67,13 @@ def personas_path() -> Path:
     return _resolve(os.environ.get("ATHENA_PERSONAS"), CONFIG_DIR / "personas.yaml")
 
 
+def agents_path() -> Path:
+    """config/agents.yaml — user-defined agents (ATHENA_AGENTS). An agent bundles a
+    base persona, a knowledge scope (repos/docs), an allowed toolset, and model
+    settings into one named, reusable configuration."""
+    return _resolve(os.environ.get("ATHENA_AGENTS"), CONFIG_DIR / "agents.yaml")
+
+
 def docs_root() -> Path:
     """Root under which dashboard uploads are stored + scanned (ATHENA_DOCS)."""
     return _resolve(os.environ.get("ATHENA_DOCS"), PROJECT_ROOT / ".docs")

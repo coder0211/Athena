@@ -30,7 +30,9 @@ import config
 import main as pipeline
 from extractors.documents import SUPPORTED_EXTENSIONS
 from graph import docs_reindex
+from query import agents as agents_module
 from query import ask as ask_module
+from query import mcp_bridge
 from query import personas as personas_module
 from query.engine import GraphQuery
 from utils.docs import document_roots, load_docs_config, save_docs_config
@@ -146,6 +148,20 @@ class AskRequest(BaseModel):
     scope: dict = {}  # {repos: [...], symbols: [...], docs: [...]} to narrow the search
     mode: str = "business"  # persona id — 'business'/'technical' or a custom type
     lang: str = "auto"  # 'auto' | 'en' | 'vi'
+    agent: str = ""  # optional agent id — applies a saved persona + scope + toolset
+
+
+class AgentIn(BaseModel):
+    id: str = ""  # slug; derived from label when empty
+    label: str
+    description: str = ""
+    persona: str = ""  # base persona id (voice/shape); defaults to 'business'
+    instruction: str = ""  # optional extra, agent-specific guidance
+    scope: dict = {}  # {repos: [...], docs: [...]} the agent looks at
+    tools: dict = {}  # {builtin: [names], mcp_servers: [names]} the agent may use
+    model: str = ""  # optional model override
+    temperature: float | None = None
+    max_steps: int | None = None
 
 
 class PersonaIn(BaseModel):
@@ -721,6 +737,52 @@ def delete_persona(persona_id: str) -> dict:
     return {"ok": True}
 
 
+# --- agents (persona + scope + toolset + model bundles) -------------------
+@app.get("/api/agents")
+def get_agents() -> dict:
+    return {"agents": agents_module.list_agents()}
+
+
+@app.get("/api/agents/tools")
+def get_agent_tools() -> dict:
+    """The building blocks the agent editor offers: personas (voice/shape), the
+    built-in graph tools, the indexed repos/documents to scope over, and the
+    reachable MCP servers to grant."""
+    engine = None
+    try:
+        engine = get_engine()
+    except HTTPException:
+        pass  # graph not built yet — repos/docs come back empty, editor still works
+    repos = engine.repos() if engine else []
+    docs = [d.get("name") for d in (engine.list_documents() if engine else []) if d.get("name")]
+    return {
+        "personas": [
+            {"id": p["id"], "label": p["label"]} for p in personas_module.list_personas()
+        ],
+        "builtin_tools": ask_module.builtin_tool_names(),
+        "mcp_servers": mcp_bridge.server_names(),
+        "repos": repos,
+        "docs": docs,
+    }
+
+
+@app.post("/api/agents")
+def upsert_agent(body: AgentIn) -> dict:
+    try:
+        return agents_module.upsert(body.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/agents/{agent_id}")
+def delete_agent(agent_id: str) -> dict:
+    try:
+        agents_module.delete(agent_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown agent.")
+    return {"ok": True}
+
+
 @app.post("/api/personas/generate")
 def generate_persona(body: PersonaGenerateIn) -> dict:
     """Draft a persona from a plain-language description (not saved — the client
@@ -816,6 +878,7 @@ def ask(req: AskRequest) -> dict:
         scope=req.scope,
         mode=req.mode,
         lang=req.lang,
+        agent=agents_module.get(req.agent),
     )
 
 
@@ -824,6 +887,7 @@ def ask_stream(req: AskRequest) -> StreamingResponse:
     """Server-Sent Events: streams the answer token by token as `data: {json}`
     frames (events: {delta}, {tool}, {steps,done}, {unavailable}, {error})."""
     engine = get_engine()  # raises before streaming starts if the graph is missing
+    agent = agents_module.get(req.agent)
 
     def gen():
         try:
@@ -834,6 +898,7 @@ def ask_stream(req: AskRequest) -> StreamingResponse:
                 scope=req.scope,
                 mode=req.mode,
                 lang=req.lang,
+                agent=agent,
             ):
                 yield f"data: {json.dumps(ev)}\n\n"
         except Exception as e:  # surface unexpected errors as a final event

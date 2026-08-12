@@ -6,7 +6,8 @@ import { t } from "./i18n.js";
 import { apiGet } from "./api.js";
 import { fold } from "./mentions.js";
 import { addUser, addAssistant, clearMessages, hideEmpty, showEmpty } from "./messages.js";
-import { setMode, lockMode, unlockMode, setHeaderTitle } from "./mode.js";
+import { setHeaderTitle } from "./mode.js";
+import { setAgent, lockAgent, unlockAgent } from "./agent.js";
 import { renderScope } from "./scope.js";
 
 let convCache = []; // last-loaded list, so search/group re-render without refetching
@@ -166,7 +167,9 @@ export async function openConversation(id) {
   S.scopeSymbols = [];
   renderScope();
   setHeaderTitle(conv.title);
-  if (conv.mode) setMode(conv.mode);
+  // Restore the agent this conversation was produced with; its voice (or the
+  // saved mode, when there was no agent) drives the effective voice.
+  setAgent(conv.agent || "", conv.mode || "business");
   clearMessages();
   hideEmpty();
   conv.messages.forEach((m) => {
@@ -178,7 +181,7 @@ export async function openConversation(id) {
       S.history.push({ role: "assistant", content: m.content });
     }
   });
-  if (conv.messages.length) lockMode(); // a saved conversation was produced in one mode
+  if (conv.messages.length) lockAgent(); // a saved conversation is fixed to its agent frame
   // Let Regenerate work on a re-opened conversation (re-run its last question).
   const lastUser = [...conv.messages].reverse().find((m) => m.role === "user");
   S.lastRequest = lastUser
@@ -215,7 +218,7 @@ export function newChat() {
   S.lastRequest = null;
   renderScope();
   clearMessages();
-  unlockMode();
+  unlockAgent(); // a fresh chat can pick a different agent (keeps the current choice)
   showEmpty();
   setHeaderTitle(null);
   loadConversations();

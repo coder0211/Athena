@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   user_id    TEXT NOT NULL DEFAULT 'default',
   title      TEXT NOT NULL DEFAULT 'New chat',
   mode       TEXT NOT NULL DEFAULT 'business',
+  agent      TEXT NOT NULL DEFAULT '',
   lang       TEXT NOT NULL DEFAULT 'en',
   created_at REAL NOT NULL,
   updated_at REAL NOT NULL
@@ -63,6 +64,10 @@ def init_db() -> None:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
         if "sources_json" not in cols:
             conn.execute("ALTER TABLE messages ADD COLUMN sources_json TEXT")
+        # Migrate older DBs that predate the agent column (saved agent per chat).
+        conv_cols = {r[1] for r in conn.execute("PRAGMA table_info(conversations)")}
+        if "agent" not in conv_cols:
+            conn.execute("ALTER TABLE conversations ADD COLUMN agent TEXT NOT NULL DEFAULT ''")
 
 
 def _now() -> float:
@@ -95,19 +100,21 @@ def create_conversation(
     mode: str = "business",
     lang: str = "en",
     user_id: str = DEFAULT_USER,
+    agent: str = "",
 ) -> dict:
     cid, now = _new_id(), _now()
     with _write_lock, _connect() as conn:
         conn.execute(
-            "INSERT INTO conversations (id, user_id, title, mode, lang, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?,?)",
-            (cid, user_id, title, mode, lang, now, now),
+            "INSERT INTO conversations (id, user_id, title, mode, agent, lang, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (cid, user_id, title, mode, agent, lang, now, now),
         )
     return {
         "id": cid,
         "user_id": user_id,
         "title": title,
         "mode": mode,
+        "agent": agent,
         "lang": lang,
         "created_at": now,
         "updated_at": now,

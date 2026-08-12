@@ -12,14 +12,16 @@ import os
 import re
 
 import config
+from query import agents as agents_module
 from query import mcp_bridge, personas
 from query.engine import GraphQuery
 
 
 # Read at CALL time (not import), so values from .env — which config.load_env()
 # loads at app startup, after this module is imported — are actually picked up.
-def _model() -> str:
-    return os.environ.get("ATHENA_ASK_MODEL", "gpt-4.1-nano")
+# An agent may override the model for its own answers (`override` wins when set).
+def _model(override: str | None = None) -> str:
+    return override or os.environ.get("ATHENA_ASK_MODEL", "gpt-4.1-nano")
 
 
 def _client():
@@ -49,13 +51,17 @@ def _client():
 #   ATHENA_TEMPERATURE=none        omit temperature (also: off/default/empty)
 #   ATHENA_TOKENS_PARAM=max_completion_tokens   rename the token-limit param
 #   ATHENA_PARALLEL_TOOL_CALLS=false            omit parallel_tool_calls
-def _gen_params() -> dict:
+def _gen_params(temperature: float | None = None) -> dict:
     params: dict = {}
-    temp = os.environ.get("ATHENA_TEMPERATURE")
-    if temp is None:
-        params["temperature"] = 0.3
-    elif temp.strip().lower() not in ("", "none", "off", "default"):
-        params["temperature"] = config.float_env("ATHENA_TEMPERATURE", 0.3)
+    if temperature is not None:
+        # Agent-supplied temperature wins over the env default.
+        params["temperature"] = temperature
+    else:
+        temp = os.environ.get("ATHENA_TEMPERATURE")
+        if temp is None:
+            params["temperature"] = 0.3
+        elif temp.strip().lower() not in ("", "none", "off", "default"):
+            params["temperature"] = config.float_env("ATHENA_TEMPERATURE", 0.3)
     token_param = os.environ.get("ATHENA_TOKENS_PARAM", "max_tokens")
     params[token_param] = config.int_env("ATHENA_MAX_TOKENS", 2048)
     if config.bool_env("ATHENA_PARALLEL_TOOL_CALLS", True):
@@ -283,6 +289,26 @@ _TOOLS = [
     for name, desc, params in _TOOL_SPECS
 ]
 
+_TOOLS_BY_NAME = {t["function"]["name"]: t for t in _TOOLS}
+
+
+def builtin_tool_names() -> list[dict]:
+    """The built-in graph tools an agent can allow, as [{name, description}] — for
+    the dashboard's per-agent tool picker."""
+    return [{"name": n, "description": d} for n, d, _ in _TOOL_SPECS]
+
+
+def _tools_for(eff: dict) -> list[dict]:
+    """Assemble the tool list for one answer from the effective agent config:
+    built-ins narrowed to the allow-list (None = all), plus the MCP servers this
+    agent may use (None = all servers, [] = none)."""
+    allow = eff.get("builtin")
+    if allow:
+        builtin = [_TOOLS_BY_NAME[n] for n in allow if n in _TOOLS_BY_NAME] or _TOOLS
+    else:
+        builtin = _TOOLS
+    return builtin + mcp_bridge.get_specs_for(eff.get("mcp_servers"))
+
 
 def is_available() -> bool:
     # Any of these enables Q&A: an OpenAI key, a provider-agnostic key, or a
@@ -344,15 +370,23 @@ def _init_messages(
     engine: GraphQuery,
     history: list | None,
     scope: dict | None,
-    mode: str,
+    persona_id: str,
     lang: str,
+    extra_instruction: str = "",
 ) -> list[dict]:
-    """Build the initial message list (system + capped history + user turn)."""
+    """Build the initial message list (system + capped history + user turn). When
+    an agent adds its own `extra_instruction`, it's appended to the persona's
+    system prompt so the agent's specifics ride on the same quality scaffolding."""
     repos = ", ".join(engine.repos()) or "(none)"
+    agent_note = (
+        f"\n\n[AGENT INSTRUCTIONS — follow these for this conversation]\n{extra_instruction.strip()}"
+        if extra_instruction.strip()
+        else ""
+    )
     messages: list[dict] = [
         {
             "role": "system",
-            "content": f"{personas.system_prompt(mode)}{_lang_note(lang)}\n\nIndexed repositories: {repos}.",
+            "content": f"{personas.system_prompt(persona_id)}{agent_note}{_lang_note(lang)}\n\nIndexed repositories: {repos}.",
         },
     ]
     # carry prior turns (text only), capped so context/token use stays bounded
@@ -538,17 +572,19 @@ def answer(
     scope: dict | None = None,
     mode: str = "business",
     lang: str = "auto",
+    agent: dict | None = None,
 ) -> dict:
     """Answer a NL question with optional prior conversation `history`
     ([{role, content}]) and a mention `scope` ({repos, symbols}) that narrows
-    the search. Non-streaming: drains the shared agentic loop and returns
+    the search. An `agent` (see agents.py) applies a saved persona + scope +
+    toolset + model. Non-streaming: drains the shared agentic loop and returns
     {available, answer, steps[, error]}."""
     parts: list[str] = []
     steps: list[dict] = []
     sources: list[dict] = []
     followups: list[str] = []
     error: str | None = None
-    for ev in _stream_answer(question, engine, history, scope, mode, lang):
+    for ev in _stream_answer(question, engine, history, scope, mode, lang, agent):
         if "unavailable" in ev:
             return {"available": False, "reason": ev["unavailable"]}
         if "delta" in ev:
@@ -578,13 +614,14 @@ def answer_stream(
     scope: dict | None = None,
     mode: str = "business",
     lang: str = "auto",
+    agent: dict | None = None,
 ):
     """Streaming variant of answer(): forwards the shared loop's events for the
     SSE endpoint to relay frame by frame. Events:
       {'unavailable': reason} | {'delta': text} | {'tool': name} |
       {'followups': [...]} | {'steps': [...], 'done': True[, 'error': name]}
     """
-    yield from _stream_answer(question, engine, history, scope, mode, lang)
+    yield from _stream_answer(question, engine, history, scope, mode, lang, agent)
 
 
 def _step_target(engine, args: dict) -> str:
@@ -628,6 +665,7 @@ def _stream_answer(
     scope: dict | None,
     mode: str,
     lang: str,
+    agent: dict | None = None,
 ):
     """The single agentic loop behind both answer() and answer_stream().
 
@@ -646,28 +684,38 @@ def _stream_answer(
         }
         return
 
+    # Fold the agent (if any) + the request scope into one effective config: the
+    # persona to speak as, the merged knowledge scope, the allowed toolset, and any
+    # model overrides. With no agent this reproduces the previous behaviour exactly.
+    eff = agents_module.effective(agent, scope)
+    persona_id = eff["persona"] or mode
+    eff_scope = eff["scope"]
+
     client = _client()
-    messages = _init_messages(question, engine, history, scope, mode, lang)
+    messages = _init_messages(
+        question, engine, history, eff_scope, persona_id, lang, eff["instruction"]
+    )
     steps: list[dict] = []
     sources: list[dict] = []  # documents actually read (read_passage) — shown as refs
     seen_sources: set = set()
     tool_cache: dict = {}
     nudges = 0
-    max_steps = config.int_env("ATHENA_MAX_STEPS", 16)
+    max_steps = eff["max_steps"] or config.int_env("ATHENA_MAX_STEPS", 16)
     force_first = config.bool_env("ATHENA_FORCE_FIRST_TOOL", True)
 
-    # Built-in tools + any configured third-party MCP server tools (discovered
-    # once; empty if none/unreachable, so Q&A is unaffected when MCP isn't used).
-    tools = _TOOLS + mcp_bridge.get_specs()
+    # Built-in tools (narrowed to the agent's allow-list) + the MCP servers this
+    # agent may use — discovered once; empty if none/unreachable, so Q&A is
+    # unaffected when MCP isn't used.
+    tools = _tools_for(eff)
 
     def _create(tool_choice: str, want_usage: bool):
         params = dict(
-            model=_model(),
+            model=_model(eff["model"]),
             messages=messages,
             tools=tools,
             tool_choice=tool_choice,
             stream=True,
-            **_gen_params(),
+            **_gen_params(eff["temperature"]),
         )
         # OpenAI streams token counts only when explicitly asked; some OpenAI-
         # compatible providers reject the option, so we fall back without it (and
@@ -755,7 +803,7 @@ def _stream_answer(
                 continue
             if not live:  # buffered a good answer → flush it now
                 yield {"delta": "".join(content_parts)}
-            fups = _followups(client, question, "".join(content_parts), mode, lang)
+            fups = _followups(client, question, "".join(content_parts), persona_id, lang)
             if fups:
                 yield {"followups": fups}
             if usage["total_tokens"]:
