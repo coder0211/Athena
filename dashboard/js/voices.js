@@ -65,7 +65,9 @@ function refineRow(item) {
   const prompt = el("input", "agent-input");
   prompt.value = (item && item.prompt) || "";
   prompt.placeholder = "What to ask Athena to do";
-  const del = el("button", "btn small danger", "✕");
+  const del = el("button", "btn small danger",
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.9" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>');
   del.type = "button";
   del.title = "Remove";
   del.addEventListener("click", () => {
@@ -97,7 +99,7 @@ function openEditor(voice) {
   desc.placeholder =
     "e.g. Sales reps — persuasive, benefit-focused, what to tell a prospect. No code jargon.";
 
-  const generate = el("button", "btn small", "✨ Generate instruction");
+  const generate = el("button", "btn small", "Generate instruction");
   generate.type = "button";
 
   const instruction = el("textarea", "agent-input agent-textarea");

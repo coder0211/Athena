@@ -455,7 +455,7 @@ function renderNodePanel(panel) {
   panel.innerHTML =
     `<div class="ws-panel-head"><span class="ws-node-ico">${ICON[n.kind]}</span>` +
     `<b title="${escapeHtml(n.name)}">${escapeHtml(n.name)}</b>` +
-    `<button class="icon-btn ws-panel-close" title="Close">✕</button></div>` +
+    `<button class="icon-btn ws-panel-close" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>` +
     `<div class="ws-panel-kind">${n.kind === "repo" ? "Repository" : "Document"}</div>` +
     `<label class="ws-field"><span>Description</span><textarea id="ws-f-desc" rows="3" placeholder="What is this?">${escapeHtml(n.meta.description)}</textarea></label>` +
     roleField +
@@ -487,7 +487,7 @@ function renderEdgePanel(panel) {
   const a = nodes.get(e.source), b = nodes.get(e.target);
   panel.innerHTML =
     `<div class="ws-panel-head"><b>Connection</b>` +
-    `<button class="icon-btn ws-panel-close" title="Close">✕</button></div>` +
+    `<button class="icon-btn ws-panel-close" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>` +
     `<div class="ws-panel-kind">${escapeHtml(a?.name || e.source)} → ${escapeHtml(b?.name || e.target)}</div>` +
     `<label class="ws-field"><span>Relationship</span><select id="ws-f-type">${options(WS.relation_types, e.type)}</select></label>` +
     `<label class="ws-field"><span>Notes</span><textarea id="ws-f-edesc" rows="3" placeholder="Optional description">${escapeHtml(e.description)}</textarea></label>` +

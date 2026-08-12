@@ -106,20 +106,30 @@
   text-align: center;
 }
 .conv-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 7px 10px 7px 12px;
   border-radius: 8px;
   cursor: pointer;
-  border: 1px solid transparent;
 }
 .conv-item:hover {
   background: var(--panel-2);
 }
 .conv-item.active {
-  background: var(--mode-tint, var(--panel-2));
-  border-color: var(--mode-accent, var(--border));
+  background: color-mix(in srgb, var(--text) 6%, var(--panel));
+}
+/* An ink bar marks the active chat — cleaner than boxing it in a border. */
+.conv-item.active::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--text);
 }
 .conv-main {
   flex: 1;
@@ -146,6 +156,14 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  /* Collapsed until hover/active, so the title uses the full width by default. */
+  max-width: 0;
+  overflow: hidden;
+  transition: max-width 0.14s ease;
+}
+.conv-item:hover .conv-actions,
+.conv-item.active .conv-actions {
+  max-width: 56px;
 }
 .conv-del,
 .conv-ren {
@@ -319,8 +337,8 @@
 .chat-banner {
   padding: 8px 20px;
   font-size: 13px;
-  color: #d4a017;
-  background: #b8860020;
+  color: #8a6a00; /* readable amber on light paper */
+  background: #b886001a;
   border-bottom: 1px solid var(--border);
 }
 .messages {
@@ -336,6 +354,11 @@
 }
 .chat-msg {
   display: flex;
+  /* A comfortable reading measure, centred — long answers don't sprawl edge to
+     edge on wide screens. */
+  width: 100%;
+  max-width: 840px;
+  margin-inline: auto;
 }
 /* Gentle entrance for each new message — skipped for reduced-motion users. */
 @media (prefers-reduced-motion: no-preference) {
@@ -373,6 +396,10 @@
   background: var(--panel);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
+  /* Fill the reading column so wide blocks (process trace, mermaid, code, tables)
+     get the full width + even padding; user bubbles stay narrow (82%) at right. */
+  max-width: 100%;
+  width: 100%;
 }
 .bubble.error {
   border-color: var(--err);
@@ -580,33 +607,20 @@
   opacity: 1;
 }
 
-/* Syntax highlight tokens (dark theme defaults — GitHub-ish palette) */
+/* Syntax highlight tokens — GitHub-light palette (the UI is forced light). Muted,
+   restrained hues: colour here serves code legibility, not decoration. */
 .tok-comment {
-  color: #8b949e;
+  color: #6e7781;
   font-style: italic;
 }
 .tok-string {
-  color: #a5d6ff;
+  color: #0a3069;
 }
 .tok-number {
-  color: #79c0ff;
+  color: #0550ae;
 }
 .tok-keyword {
-  color: #ff7b72;
-}
-@media (prefers-color-scheme: light) {
-  .tok-comment {
-    color: #6e7781;
-  }
-  .tok-string {
-    color: #0a3069;
-  }
-  .tok-number {
-    color: #0550ae;
-  }
-  .tok-keyword {
-    color: #cf222e;
-  }
+  color: #cf222e;
 }
 /* Footer under an assistant answer: tools used (left) + copy (right) */
 .msg-foot {
@@ -849,15 +863,15 @@
 
 /* Send button doubles as a Stop button while an answer streams */
 .composer .btn.primary.stopping {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: var(--err);
+  border-color: var(--err);
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 .composer .btn.primary.stopping:hover {
-  background: #991b1b;
-  border-color: #991b1b;
+  background: color-mix(in srgb, var(--err) 82%, #000);
+  border-color: color-mix(in srgb, var(--err) 82%, #000);
 }
 .composer .btn.primary.stopping svg {
   display: block;
@@ -897,31 +911,27 @@
   border-color: var(--mode-accent);
   color: var(--mode-accent);
 }
-/* Mode themes — the composer switches accent so Business vs Technical is
-   distinguishable at a glance. Defaults to the business (blue) palette. */
+/* Mode themes — Editorial Light is monochrome, so every persona shares one ink
+   accent (no per-mode colour). Kept as tokens so the composer/bubbles still
+   reference them consistently. */
 .chat-page {
-  --mode-accent: #4f9cf9; /* vivid — used for borders/focus ring */
-  --mode-accent-2: #2f7de0;
-  --mode-tint: rgba(79, 156, 249, 0.09);
-  --mode-send: #1f6fd0; /* darker — white text on Send hits WCAG AA (~4.95:1) */
-  --mode-send-hover: #195cb0;
-}
-.chat-page[data-mode="technical"] {
-  --mode-accent: #fb923c; /* vivid orange — borders/focus (no text over it) */
-  --mode-accent-2: #ea7c1f;
-  --mode-tint: rgba(251, 146, 60, 0.12);
-  --mode-send: #c2410c; /* burnt orange — white text hits AA (~5.2:1) */
-  --mode-send-hover: #9a3412;
+  --mode-accent: var(--text); /* ink — borders/focus ring */
+  --mode-accent-2: #000;
+  --mode-tint: color-mix(in srgb, var(--text) 5%, transparent); /* faint gray wash */
+  --mode-send: var(--accent); /* ink Send button, white text */
+  --mode-send-hover: #000;
 }
 .composer {
   display: flex;
   gap: 10px;
   align-items: flex-end;
-  padding: 14px 20px;
-  border-top: 2px solid var(--mode-accent);
+  /* Full-width bar, but the input + send are centred to the reading column so
+     they line up with the messages above (padding trick keeps the bar edge-to-edge). */
+  padding: 14px max(20px, calc((100% - 840px) / 2));
+  border-top: 1px solid var(--border);
   background: var(--mode-tint);
   width: 100%;
-  max-width: none; /* composer spans the full width, aligned with the stream */
+  max-width: none;
   margin: 0 auto;
   box-sizing: border-box;
   transition:

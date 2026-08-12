@@ -18,8 +18,9 @@ let dirty = false;
 const BASE_W = 2000, BASE_H = 1200; // canvas coordinate space
 let zoom = 1;
 const ZOOM_MIN = 0.4, ZOOM_MAX = 1.8;
+// A plain line "person" mark — an agent is a persona, not a robot.
 const AGENT_ICON =
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v1h1a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3h1V5a3 3 0 0 1 3-3Z"/><circle cx="9.5" cy="10.5" r="1"/><circle cx="14.5" cy="10.5" r="1"/><path d="M9 20h6M12 17v3"/></svg>';
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>';
 
 const agentById = (id) => AGENTS.find((a) => a.id === id);
 const sel = (id) => `[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`;
@@ -338,7 +339,7 @@ function renderNodePanel(panel) {
   panel.innerHTML =
     `<div class="ws-panel-head"><span class="ws-node-ico">${AGENT_ICON}</span>` +
     `<b title="${escapeHtml(a.label)}">${escapeHtml(a.label)}</b>` +
-    `<button class="icon-btn ws-panel-close" title="Close">✕</button></div>` +
+    `<button class="icon-btn ws-panel-close" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>` +
     `<div class="ws-panel-kind">Agent</div>` +
     (a.description ? `<p class="wf-panel-desc">${escapeHtml(a.description)}</p>` : "") +
     `<div class="ws-field"><span>Voice</span><div class="wf-panel-val">${escapeHtml(a.persona || "business")}</div></div>` +
@@ -354,7 +355,7 @@ function renderEdgePanel(panel) {
   const a = agentById(e.source), b = agentById(e.target);
   panel.innerHTML =
     `<div class="ws-panel-head"><b>Step</b>` +
-    `<button class="icon-btn ws-panel-close" title="Close">✕</button></div>` +
+    `<button class="icon-btn ws-panel-close" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>` +
     `<div class="ws-panel-kind">${escapeHtml(a?.label || e.source)} → ${escapeHtml(b?.label || e.target)}</div>` +
     `<p class="wf-panel-desc">“${escapeHtml(a?.label || e.source)}” runs first; its answer is fed to ` +
     `“${escapeHtml(b?.label || e.target)}” as context.</p>` +

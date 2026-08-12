@@ -2,6 +2,15 @@
 import { $, el, escapeHtml } from "./dom.js";
 import { api } from "./api.js";
 
+// Monochrome line marks for the status bar (no coloured emoji — editorial).
+const _svg = (paths) =>
+  `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
+  `stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ` +
+  `style="vertical-align:-2px;margin-right:5px">${paths}</svg>`;
+const ICON_OK = _svg('<circle cx="12" cy="12" r="9"/><path d="M8.4 12.4l2.5 2.5 4.7-5.2"/>');
+const ICON_ALERT = _svg('<path d="M12 3.6 21.2 19.5H2.8z"/><path d="M12 10v4.2"/><path d="M12 17.4h.01"/>');
+const ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 6.5"/></svg>';
+
 // Open Chat leads nowhere useful until a graph exists; dim it and explain why
 // so first-run users don't land in an empty chat.
 function setChatEnabled(built) {
@@ -24,13 +33,13 @@ export async function refreshStatus() {
       const g = s.graph;
       const docs = g.node_types?.Document || 0;
       bar.innerHTML =
-        `✅ Graph: <b>${g.nodes.toLocaleString()}</b> nodes · ` +
+        `${ICON_OK} Graph: <b>${g.nodes.toLocaleString()}</b> nodes · ` +
         `<b>${g.edges.toLocaleString()}</b> edges · ` +
         `<b>${Object.keys(g.by_repo || {}).length}</b> repos · ` +
         `<b>${docs.toLocaleString()}</b> docs`;
       renderStats(g, s.built_at);
     } else {
-      bar.textContent = "⚠️ Graph not built yet — add repos, then run the Pipeline.";
+      bar.innerHTML = `${ICON_ALERT} Graph not built yet — add repos, then run the Pipeline.`;
       if (wrap) wrap.innerHTML = renderOnboarding(s); // guide the first build
     }
   } catch (e) {
@@ -47,7 +56,7 @@ function renderOnboarding(s) {
   const hasRepos = (s.repos || []).some(Boolean);
   const step = (done, title, body) =>
     `<li class="ob-step${done ? " done" : ""}">` +
-    `<span class="ob-check">${done ? "✓" : ""}</span>` +
+    `<span class="ob-check">${done ? ICON_CHECK : ""}</span>` +
     `<div><div class="ob-t">${title}</div><div class="ob-d">${body}</div></div></li>`;
   return (
     `<div class="onboarding">` +

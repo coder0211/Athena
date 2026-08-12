@@ -5,6 +5,13 @@ import { api } from "./api.js";
 import { refreshStatus } from "./stats.js";
 import { setDirty } from "./dirty.js";
 
+// Line icons for the row controls (thin, monochrome — no glyph characters).
+const _ic = (paths, w = 15) =>
+  `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
+  `stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+const ICON_REFRESH = _ic('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4.5V10h-5.5"/>');
+const ICON_X = _ic('<path d="M18 6 6 18M6 6l12 12"/>');
+
 // Searchable branch combobox: an input with a filtered, theme-matched dropdown.
 // Handles 200+ branches gracefully (type to filter) and keeps an arbitrary value.
 function makeBranchCombo(current = "main") {
@@ -112,14 +119,14 @@ function repoRow(url = "", branch = "main", saved = false) {
   u.addEventListener("blur", validate);
 
   const combo = makeBranchCombo(branch);
-  const refresh = el("button", "icon-btn", "↻");
+  const refresh = el("button", "icon-btn", ICON_REFRESH);
   refresh.type = "button";
   refresh.title = "Load branches from the repo";
   const load = () => loadBranches(u.value, combo);
   refresh.onclick = load;
   u.addEventListener("change", load); // fires on blur / Enter after editing the URL
 
-  const del = el("button", "icon-btn", "✕");
+  const del = el("button", "icon-btn del", ICON_X);
   del.type = "button";
   del.title = "Remove";
   del.onclick = () => removeRow(row);

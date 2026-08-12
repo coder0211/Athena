@@ -4,43 +4,53 @@
   box-sizing: border-box;
 }
 :root {
-  --bg: #0f1216;
-  --panel: #171b21;
-  --panel-2: #1e242c;
-  --border: #2a323c;
-  --text: #e6e9ee;
-  --muted: #93a1b0;
-  --accent: #4f9cf9;
-  --accent-2: #2f7de0;
-  --ok: #3fb950;
-  --err: #f85149;
-}
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f8fa;
-    --panel: #ffffff;
-    --panel-2: #f0f3f6;
-    --border: #d8dee4;
-    --text: #1f2328;
-    --muted: #59636e;
-    --accent: #2f7de0;
-    --accent-2: #1f6fd0;
-  }
+  /* Editorial Light — warm paper, ink text, a black (not blue) accent. A
+     print-inspired, monochrome system: colour is reserved for meaning (ok/err),
+     never decoration. Forced light regardless of OS theme. */
+  color-scheme: light;
+  --bg: #f6f6f4; /* warm paper */
+  --panel: #ffffff; /* surfaces */
+  --panel-2: #f1f1ee; /* nested controls / subtle fill */
+  --border: #e6e5e0; /* hairline rules */
+  --border-soft: #eeede9;
+  --text: #18181a; /* ink */
+  --muted: #6c6c68; /* secondary ink */
+  --accent: #18181a; /* the accent IS ink — buttons, active states, bars */
+  --accent-2: #000000;
+  --ok: #1c7c46;
+  --err: #c23a34;
+  /* Barely-there elevation; the design leans on hairlines, not shadow. */
+  --shadow-1: 0 1px 2px rgba(24, 24, 26, 0.05);
+  --shadow-2: 0 10px 30px rgba(24, 24, 26, 0.1);
+  --radius: 9px;
+  --radius-sm: 6px;
 }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+/* Ink focus ring (replaces the browser's blue default) — keyboard users only.
+   Buttons opt out below in favour of their own box-shadow ring. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
 }
 h2 {
   font-size: 18px;
   margin: 0 0 4px;
+  letter-spacing: -0.012em;
 }
 h3 {
   font-size: 15px;
   margin: 24px 0 8px;
+  letter-spacing: -0.006em;
 }
 .hint {
   color: var(--muted);
@@ -58,13 +68,20 @@ code {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 8px 14px;
   font-size: 14px;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .btn:hover {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--panel-2) 78%, var(--text) 4%);
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .btn.primary {
   background: var(--accent);
@@ -73,6 +90,7 @@ code {
 }
 .btn.primary:hover {
   background: var(--accent-2);
+  border-color: var(--accent-2);
 }
 .btn.danger {
   background: var(--err);
@@ -107,6 +125,18 @@ a.btn {
 .btn.small {
   padding: 5px 10px;
   font-size: 13px;
+}
+/* Small destructive actions stay quiet (outlined) until hovered — refined and
+   far less shouty than a wall of solid-red buttons. */
+.btn.small.danger {
+  background: transparent;
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 42%, var(--border));
+}
+.btn.small.danger:hover {
+  background: var(--err);
+  border-color: var(--err);
+  color: #fff;
 }
 /* Unsaved-changes dot on a Save control (set via js/dirty.js). */
 .btn.is-dirty::after {

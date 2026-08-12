@@ -13,6 +13,24 @@ import { renderScope } from "./scope.js";
 let convCache = []; // last-loaded list, so search/group re-render without refetching
 let convQuery = ""; // current sidebar search text
 
+// Flatten a markdown snippet to plain text for the sidebar preview — raw "##",
+// "**", list markers etc. shouldn't leak into the one-line summary.
+function stripMd(s) {
+  return (s || "")
+    .replace(/```[\s\S]*?```/g, " ") // fenced code
+    .replace(/`([^`]+)`/g, "$1") // inline code
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // images
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links → text
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "") // headings
+    .replace(/^\s*>\s?/gm, "") // blockquotes
+    .replace(/^\s*[-*+]\s+/gm, "") // bullet lists
+    .replace(/^\s*\d+\.\s+/gm, "") // numbered lists
+    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1") // bold/italic
+    .replace(/[*_#>`~]/g, "") // stray marks
+    .replace(/\s+/g, " ") // collapse whitespace
+    .trim();
+}
+
 export async function loadConversations() {
   let list;
   try {
@@ -88,7 +106,16 @@ function convItem(c) {
     startRename(item, title, c);
   };
   main.append(title);
-  if (c.preview) main.append(el("div", "conv-preview", escapeHtml(c.preview)));
+  const preview = stripMd(c.preview);
+  // Skip a preview that merely repeats the title (single-turn chats, where the
+  // last message ≈ the first user turn the title was derived from) — the item
+  // collapses to a clean single line instead of showing the same text twice.
+  const norm = (s) => (s || "").toLowerCase().replace(/[…\s]+/g, " ").trim();
+  const tclean = norm(c.title).replace(/…$/, "");
+  const dup =
+    norm(preview) === norm(c.title) ||
+    (tclean.length >= 8 && norm(preview).startsWith(tclean));
+  if (preview && !dup) main.append(el("div", "conv-preview", escapeHtml(preview)));
   item.append(main);
   const actions = el("div", "conv-actions");
   const ren = el("button", "conv-ren", ICON_EDIT);
@@ -98,7 +125,11 @@ function convItem(c) {
     e.stopPropagation(); // rename in place, don't open the conversation
     startRename(item, title, c);
   };
-  const del = el("button", "conv-del", "×");
+  const del = el(
+    "button",
+    "conv-del",
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  );
   del.type = "button";
   del.title = t().deleteLabel;
   del.onclick = (e) => {
