@@ -133,6 +133,11 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
       ensureRow();
       acc += ev.delta;
       scheduleRender();
+    } else if (ev.step) {
+      // Workflow progress: a new pipeline step (agent) is starting. Show it in the
+      // trace so the long intermediate steps read as "◆ Fix writer · 2/3".
+      ensureTrace();
+      trace.addPhase(ev.step);
     } else if (ev.tool) {
       ensureTrace();
       const step = { tool: ev.tool, input: ev.input }; // input enriches the trace target
@@ -160,6 +165,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
         scope,
         mode: S.mode,
         agent: S.agent,
+        workflow: S.workflow,
         lang: S.lang,
         regenerate: regen,
         edit,

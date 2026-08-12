@@ -1304,6 +1304,15 @@
   font-size: 12px;
   color: var(--muted);
 }
+/* Section header inside the picker menu (Agents / Workflows). */
+.agent-menu-head {
+  padding: 8px 10px 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
 
 /* Create / edit answer-type modal */
 .persona-modal {
@@ -1604,6 +1613,26 @@
   color: var(--muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+/* Workflow pipeline step marker inside the trace ("◆ Fix writer · 2/3"). */
+.trace-phase {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mode-send, var(--accent));
+}
+.trace-phase:first-child {
+  margin-top: 0;
+}
+.trace-phase-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--mode-send, var(--accent));
 }
 
 /* --- Clickable document source chips --- */

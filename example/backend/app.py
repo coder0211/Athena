@@ -78,7 +78,7 @@ def _sse(obj: dict) -> str:
 @app.post("/api/conversations")
 async def create_conversation(body: ConversationCreate) -> dict:
     return await run_in_threadpool(
-        db.create_conversation, body.title, body.mode, body.lang, USER, body.agent
+        db.create_conversation, body.title, body.mode, body.lang, USER, body.agent, body.workflow
     )
 
 
@@ -122,7 +122,7 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
         cid, is_new = req.conversation_id, False
     else:
         conv = await run_in_threadpool(
-            db.create_conversation, "New chat", req.mode, req.lang, USER, req.agent
+            db.create_conversation, "New chat", req.mode, req.lang, USER, req.agent, req.workflow
         )
         cid, is_new = conv["id"], True
 
@@ -157,6 +157,7 @@ async def ask_stream(req: AskStreamRequest, request: Request) -> StreamingRespon
         "mode": req.mode,
         "lang": req.lang,
         "agent": req.agent,
+        "workflow": req.workflow,
     }
     client: httpx.AsyncClient = request.app.state.http
 

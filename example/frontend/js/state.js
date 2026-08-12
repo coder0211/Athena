@@ -9,10 +9,12 @@ export const S = {
   busy: false,
   mode: localStorage.getItem("athena_mode") || "business", // persona id (answer "type")
   agent: localStorage.getItem("athena_agent") || "", // selected agent id ("" = none)
-  agentLocked: false, // once a conversation has turns, the agent is fixed for it
+  workflow: localStorage.getItem("athena_workflow") || "", // selected workflow id ("" = none; wins over agent)
+  agentLocked: false, // once a conversation has turns, the agent/workflow is fixed for it
   lang: savedLang === "en" || savedLang === "vi" ? savedLang : "en",
   PERSONAS: [], // answer "types": [{id, label, description, icon, instruction, greeting, suggestions, builtin}]
   AGENTS: [], // saved agents: [{id, label, description, persona, scope, tools, model}]
+  WORKFLOWS: [], // saved workflows: [{id, label, description, nodes, edges}]
   REPOS: [], // repo names, for @ mentions
   REPO_META: {}, // {name: {description, role, tags}} for @ mention hints
   DOCS: [], // [{id, name, file_type, sections}] ingested documents, for @ mentions

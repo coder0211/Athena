@@ -7,7 +7,7 @@ import { apiGet } from "./api.js";
 import { fold } from "./mentions.js";
 import { addUser, addAssistant, clearMessages, hideEmpty, showEmpty } from "./messages.js";
 import { setHeaderTitle } from "./mode.js";
-import { setAgent, lockAgent, unlockAgent } from "./agent.js";
+import { restoreSelection, lockAgent, unlockAgent } from "./agent.js";
 import { renderScope } from "./scope.js";
 
 let convCache = []; // last-loaded list, so search/group re-render without refetching
@@ -167,9 +167,9 @@ export async function openConversation(id) {
   S.scopeSymbols = [];
   renderScope();
   setHeaderTitle(conv.title);
-  // Restore the agent this conversation was produced with; its voice (or the
-  // saved mode, when there was no agent) drives the effective voice.
-  setAgent(conv.agent || "", conv.mode || "business");
+  // Restore the agent/workflow this conversation was produced with; its voice (or
+  // the saved mode, when there was neither) drives the effective voice.
+  restoreSelection(conv.agent || "", conv.workflow || "", conv.mode || "business");
   clearMessages();
   hideEmpty();
   conv.messages.forEach((m) => {

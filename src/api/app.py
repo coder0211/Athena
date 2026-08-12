@@ -33,6 +33,7 @@ from graph import docs_reindex
 from query import agents as agents_module
 from query import ask as ask_module
 from query import mcp_bridge
+from query import workflows as workflows_module
 from query import personas as personas_module
 from query.engine import GraphQuery
 from utils.docs import document_roots, load_docs_config, save_docs_config
@@ -149,6 +150,7 @@ class AskRequest(BaseModel):
     mode: str = "business"  # persona id — 'business'/'technical' or a custom type
     lang: str = "auto"  # 'auto' | 'en' | 'vi'
     agent: str = ""  # optional agent id — applies a saved persona + scope + toolset
+    workflow: str = ""  # optional workflow id — chains several agents (wins over agent)
 
 
 class AgentIn(BaseModel):
@@ -162,6 +164,14 @@ class AgentIn(BaseModel):
     model: str = ""  # optional model override
     temperature: float | None = None
     max_steps: int | None = None
+
+
+class WorkflowIn(BaseModel):
+    id: str = ""  # slug; derived from label when empty
+    label: str
+    description: str = ""
+    nodes: list = []  # [{agent, x, y}] — which agents, placed on the canvas
+    edges: list = []  # [{source, target}] — agent ids; source runs before target
 
 
 class PersonaIn(BaseModel):
@@ -783,6 +793,29 @@ def delete_agent(agent_id: str) -> dict:
     return {"ok": True}
 
 
+# --- workflows (agents chained into a directed graph) ---------------------
+@app.get("/api/workflows")
+def get_workflows() -> dict:
+    return {"workflows": workflows_module.list_workflows()}
+
+
+@app.post("/api/workflows")
+def upsert_workflow(body: WorkflowIn) -> dict:
+    try:
+        return workflows_module.upsert(body.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/workflows/{workflow_id}")
+def delete_workflow(workflow_id: str) -> dict:
+    try:
+        workflows_module.delete(workflow_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown workflow.")
+    return {"ok": True}
+
+
 @app.post("/api/personas/generate")
 def generate_persona(body: PersonaGenerateIn) -> dict:
     """Draft a persona from a plain-language description (not saved — the client
@@ -869,11 +902,18 @@ def starters(persona: str | None = None, lang: str = "en", n: int = 4) -> dict:
 
 
 # --- natural-language Q&A -------------------------------------------------
-@app.post("/api/ask")
-def ask(req: AskRequest) -> dict:
-    return ask_module.answer(
+def _answer_events(req: AskRequest, engine):
+    """The event stream for one request: a workflow (multiple agents chained) when
+    `req.workflow` names one, otherwise a single agent/persona answer. Both yield
+    the same event shape, so callers relay them identically."""
+    wf = workflows_module.get(req.workflow)
+    if wf:
+        return workflows_module.run_stream(
+            wf, req.question, engine, history=req.history, scope=req.scope, lang=req.lang
+        )
+    return ask_module.answer_stream(
         req.question,
-        get_engine(),
+        engine,
         history=req.history,
         scope=req.scope,
         mode=req.mode,
@@ -882,24 +922,32 @@ def ask(req: AskRequest) -> dict:
     )
 
 
+@app.post("/api/ask")
+def ask(req: AskRequest) -> dict:
+    # Drain the shared event stream into a single {answer, steps, sources} result.
+    parts, steps, sources, error = [], [], [], None
+    for ev in _answer_events(req, get_engine()):
+        if "unavailable" in ev:
+            return {"available": False, "reason": ev["unavailable"]}
+        if "delta" in ev:
+            parts.append(ev["delta"])
+        elif ev.get("done"):
+            steps, sources, error = ev.get("steps", []), ev.get("sources", []), ev.get("error")
+    out = {"available": True, "answer": "".join(parts), "steps": steps, "sources": sources}
+    if error:
+        out["error"] = error
+    return out
+
+
 @app.post("/api/ask/stream")
 def ask_stream(req: AskRequest) -> StreamingResponse:
     """Server-Sent Events: streams the answer token by token as `data: {json}`
-    frames (events: {delta}, {tool}, {steps,done}, {unavailable}, {error})."""
+    frames (events: {delta}, {tool}, {step}, {steps,done}, {unavailable}, {error})."""
     engine = get_engine()  # raises before streaming starts if the graph is missing
-    agent = agents_module.get(req.agent)
 
     def gen():
         try:
-            for ev in ask_module.answer_stream(
-                req.question,
-                engine,
-                history=req.history,
-                scope=req.scope,
-                mode=req.mode,
-                lang=req.lang,
-                agent=agent,
-            ):
+            for ev in _answer_events(req, engine):
                 yield f"data: {json.dumps(ev)}\n\n"
         except Exception as e:  # surface unexpected errors as a final event
             yield f"data: {json.dumps({'error': f'{type(e).__name__}: {e}'})}\n\n"

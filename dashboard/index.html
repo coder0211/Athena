@@ -21,18 +21,26 @@
     </header>
 
     <nav class="tabs" role="tablist" aria-label="Dashboard sections">
-      <button class="tab active" data-tab="repos" role="tab" id="tab-repos"
-              aria-controls="repos" aria-selected="true">Repositories</button>
-      <button class="tab" data-tab="documents" role="tab" id="tab-documents"
-              aria-controls="documents" aria-selected="false" tabindex="-1">Documents</button>
-      <button class="tab" data-tab="workspace" role="tab" id="tab-workspace"
-              aria-controls="workspace" aria-selected="false" tabindex="-1">Workspace</button>
-      <button class="tab" data-tab="voices" role="tab" id="tab-voices"
-              aria-controls="voices" aria-selected="false" tabindex="-1">Voices</button>
-      <button class="tab" data-tab="agents" role="tab" id="tab-agents"
-              aria-controls="agents" aria-selected="false" tabindex="-1">Agents</button>
-      <button class="tab" data-tab="mcp" role="tab" id="tab-mcp"
-              aria-controls="mcp" aria-selected="false" tabindex="-1">MCP</button>
+      <div class="tab-group" role="presentation">
+        <span class="tab-group-label">Knowledge</span>
+        <button class="tab active" data-tab="repos" role="tab" id="tab-repos"
+                aria-controls="repos" aria-selected="true">Repositories</button>
+        <button class="tab" data-tab="documents" role="tab" id="tab-documents"
+                aria-controls="documents" aria-selected="false" tabindex="-1">Documents</button>
+        <button class="tab" data-tab="mcp" role="tab" id="tab-mcp"
+                aria-controls="mcp" aria-selected="false" tabindex="-1">MCP</button>
+        <button class="tab" data-tab="workspace" role="tab" id="tab-workspace"
+                aria-controls="workspace" aria-selected="false" tabindex="-1">Workspace</button>
+      </div>
+      <div class="tab-group" role="presentation">
+        <span class="tab-group-label">Assistants</span>
+        <button class="tab" data-tab="voices" role="tab" id="tab-voices"
+                aria-controls="voices" aria-selected="false" tabindex="-1">Voices</button>
+        <button class="tab" data-tab="agents" role="tab" id="tab-agents"
+                aria-controls="agents" aria-selected="false" tabindex="-1">Agents</button>
+        <button class="tab" data-tab="workflows" role="tab" id="tab-workflows"
+                aria-controls="workflows" aria-selected="false" tabindex="-1">Workflows</button>
+      </div>
     </nav>
 
     <main>
@@ -194,6 +202,59 @@
         </div>
         <div id="agent-list" class="agent-list"></div>
         <div id="agent-editor" class="agent-editor" hidden></div>
+      </section>
+
+      <!-- Workflows (agents chained on a canvas) -->
+      <section id="workflows" class="panel" role="tabpanel" aria-labelledby="tab-workflows" tabindex="0">
+        <h2>Workflows</h2>
+        <p class="hint">
+          Chain agents into a pipeline: each node is an <b>agent</b>, each arrow is an execution
+          step — drag from a node's handle onto another to connect them, and the source agent's
+          answer is fed to the target as context. Pick a workflow in chat to run the whole chain.
+        </p>
+        <div class="ws-section-title">
+          Your workflows <span class="ws-sub" id="wf-count"></span>
+          <button id="wf-new" class="btn small primary" type="button">+ New workflow</button>
+        </div>
+        <div id="wf-list" class="agent-list"></div>
+
+        <div id="wf-builder" class="wf-builder" hidden>
+          <div class="wf-meta">
+            <input id="wf-label" class="agent-input" placeholder="Workflow name (e.g. Audit → Fix → Summary)" />
+            <input id="wf-desc" class="agent-input" placeholder="One line — what this workflow does" />
+          </div>
+          <div id="wf-stage" class="ws-stage">
+            <div class="ws-toolbar">
+              <div class="ws-add">
+                <button id="wf-add-btn" class="btn small" type="button">+ Add agent</button>
+                <div id="wf-add-menu" class="ws-add-menu" hidden></div>
+              </div>
+              <button id="wf-full" class="btn small" type="button" title="Toggle full screen">Full screen</button>
+              <span class="ws-spacer"></span>
+              <span id="wf-msg" class="msg"></span>
+              <button id="wf-delete" class="btn small danger" type="button" hidden>Delete</button>
+              <button id="wf-close" class="btn small" type="button">Close</button>
+              <button id="wf-save" class="btn small primary" type="button" data-dirty-for="workflows">Save</button>
+            </div>
+            <div id="wf-canvas-wrap" class="ws-canvas-wrap">
+              <div id="wf-canvas" class="ws-canvas">
+                <div id="wf-sizer" class="ws-sizer">
+                  <div id="wf-content" class="ws-content">
+                    <svg id="wf-edges" class="ws-edges"></svg>
+                    <div id="wf-nodes" class="ws-nodes"></div>
+                  </div>
+                </div>
+              </div>
+              <aside id="wf-panel" class="ws-panel" hidden></aside>
+              <div id="wf-empty-hint" class="ws-empty-hint" hidden></div>
+              <div class="ws-zoom">
+                <button id="wf-zoom-out" class="ws-zoom-btn" type="button" title="Zoom out">−</button>
+                <button id="wf-zoom-reset" class="ws-zoom-btn ws-zoom-level" type="button" title="Reset zoom">100%</button>
+                <button id="wf-zoom-in" class="ws-zoom-btn" type="button" title="Zoom in">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- MCP -->

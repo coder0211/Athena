@@ -65,6 +65,7 @@ export function createTrace() {
   let lastRow = null;
   let lastKey = null;
   let distinct = 0;
+  let phaseLabel = null; // current workflow step ("Fix writer · 2/3"), if any
   const push = (step) => {
     const key = stepKey(step);
     if (lastRow && key === lastKey) {
@@ -79,10 +80,25 @@ export function createTrace() {
 
   return {
     node,
+    // Workflow progress: mark the start of a pipeline step (one agent) so the
+    // trace reads as "◆ Fix writer · 2/3" with that agent's tool calls beneath it.
+    addPhase(phase) {
+      const total = phase.total || 1;
+      const n = (phase.index || 0) + 1;
+      phaseLabel = `${phase.label || "Step"} · ${n}/${total}`;
+      const row = el("div", "trace-phase");
+      row.append(el("span", "trace-phase-dot"), el("span", null, escapeHtml(phaseLabel)));
+      list.append(row);
+      list.scrollTop = list.scrollHeight;
+      lastRow = lastKey = null; // this agent's tool steps start a fresh run
+      label.textContent = `${t().trace.running} · ${phaseLabel}`;
+    },
     addStep(step) {
       push(step);
       list.scrollTop = list.scrollHeight; // keep the newest step in view
-      label.textContent = statusLabel(step.tool); // header tracks the latest action
+      // Header tracks the latest action, prefixed with the current pipeline step.
+      const action = statusLabel(step.tool);
+      label.textContent = phaseLabel ? `${phaseLabel} · ${action}` : action;
     },
     finalize(steps) {
       list.innerHTML = "";

@@ -1,10 +1,8 @@
-// Agent picker (chat header): selects a saved *agent* — a persona + knowledge
-// scope + toolset + model bundle authored in the dashboard. Read-only here
-// (creating/editing agents lives in the dashboard); selecting one applies the
-// whole setup to the conversation's answers. Mirrors the persona picker's
-// dropdown and — like the mode picker — locks once a conversation has turns,
-// since an agent frames the whole conversation. "No agent" hands the answer
-// type back to the plain persona picker.
+// Selection picker (chat header): choose what runs the answer — nothing ("No
+// agent"), a single saved *agent* (persona + scope + toolset), or a *workflow*
+// that chains several agents. All are authored in the dashboard; the chat only
+// selects. The choice is mutually exclusive and, once a conversation has turns,
+// locks for the rest of it (an agent/workflow frames the whole conversation).
 import { $, el, escapeHtml } from "./dom.js";
 import { S } from "./state.js";
 import { t } from "./i18n.js";
@@ -13,29 +11,50 @@ import { applyModeTheme } from "./mode.js";
 import { renderEmpty } from "./messages.js";
 
 const agentById = (id) => (S.AGENTS || []).find((a) => a.id === id);
+const workflowById = (id) => (S.WORKFLOWS || []).find((w) => w.id === id);
 const currentAgent = () => agentById(S.agent);
+const currentWorkflow = () => workflowById(S.workflow);
 
-// --- header button (shows the active agent, or "No agent") ----------------
+// --- header button (shows the active selection, or "No agent") ------------
 export function refreshAgentButton() {
   const picker = $("agent-picker");
   if (!picker) return;
+  const w = currentWorkflow();
   const a = currentAgent();
-  $("agent-picker-label").textContent = a ? a.label : t().agent.none;
-  picker.classList.toggle("has-agent", !!a);
+  $("agent-picker-label").textContent = w ? w.label : a ? a.label : t().agent.none;
+  picker.classList.toggle("has-agent", !!(w || a));
   const btn = $("agent-picker-btn");
   if (btn) btn.title = S.agentLocked ? t().agent.locked : t().agent.pickerTitle;
 }
 
-// Select an agent (or "" for none) + reflect it everywhere. The agent carries
-// the voice, so selecting one sets the effective voice (S.mode) used by the
-// welcome copy / starters / refine buttons; "no agent" falls back to `fallback`.
-export function setAgent(id, fallback = "business") {
-  S.agent = id || "";
+// Apply the current selection everywhere: the effective voice (S.mode) drives
+// the welcome copy / starters / refine buttons. An agent carries its own voice;
+// a workflow spans several, so it falls back to the default; nothing → `fallback`.
+function applySelection(fallback = "business") {
   const a = currentAgent();
-  S.mode = a ? a.persona || "business" : fallback;
+  S.mode = S.workflow ? "business" : a ? a.persona || "business" : fallback;
   applyModeTheme();
   refreshAgentButton();
   renderMenuActive();
+}
+
+export function setAgent(id) {
+  S.agent = id || "";
+  S.workflow = "";
+  applySelection();
+}
+
+export function setWorkflow(id) {
+  S.workflow = id || "";
+  S.agent = "";
+  applySelection();
+}
+
+// Restore a saved conversation's selection (workflow wins over agent, as in run).
+export function restoreSelection(agentId, workflowId, mode = "business") {
+  S.workflow = workflowId || "";
+  S.agent = workflowId ? "" : agentId || "";
+  applySelection(mode);
 }
 
 export function lockAgent() {
@@ -52,28 +71,35 @@ export function unlockAgent() {
   refreshAgentButton();
 }
 
-// --- load the saved agents ------------------------------------------------
+// --- load the saved agents + workflows ------------------------------------
 export async function loadAgents() {
   try {
-    const data = await apiGet("/api/agents");
-    S.AGENTS = (data && data.agents) || [];
+    const [ag, wf] = await Promise.all([apiGet("/api/agents"), apiGet("/api/workflows")]);
+    S.AGENTS = (ag && ag.agents) || [];
+    S.WORKFLOWS = (wf && wf.workflows) || [];
   } catch {
-    S.AGENTS = [];
+    S.AGENTS = S.AGENTS || [];
+    S.WORKFLOWS = S.WORKFLOWS || [];
   }
-  // A since-deleted selection falls back to "no agent" so the picker stays valid.
+  // Drop a since-deleted selection so the picker stays valid.
   if (S.agent && !currentAgent()) {
     S.agent = "";
     localStorage.removeItem("athena_agent");
   }
+  if (S.workflow && !currentWorkflow()) {
+    S.workflow = "";
+    localStorage.removeItem("athena_workflow");
+  }
   renderAgentMenu();
-  setAgent(S.agent); // apply persisted selection (also governs the mode picker)
+  applySelection();
 }
 
 // --- dropdown menu --------------------------------------------------------
 function renderMenuActive() {
+  const cur = S.workflow ? `wf:${S.workflow}` : S.agent ? `ag:${S.agent}` : "";
   document
     .querySelectorAll("#agent-menu .agent-menu-item")
-    .forEach((row) => row.classList.toggle("active", (row.dataset.id || "") === (S.agent || "")));
+    .forEach((row) => row.classList.toggle("active", (row.dataset.key || "") === cur));
 }
 
 function scopeLine(a) {
@@ -85,16 +111,16 @@ function scopeLine(a) {
   return parts.join(" · ");
 }
 
-function menuRow(id, label, desc) {
+function menuRow(key, label, desc, onClick) {
   const row = el("div", "agent-menu-item");
-  row.dataset.id = id;
+  row.dataset.key = key;
   row.setAttribute("role", "option");
   row.innerHTML =
     `<span class="agent-menu-text">` +
     `<span class="agent-menu-label">${escapeHtml(label)}</span>` +
     (desc ? `<span class="agent-menu-desc">${escapeHtml(desc)}</span>` : "") +
     `</span>`;
-  row.onclick = () => pickAgent(id);
+  row.onclick = onClick;
   return row;
 }
 
@@ -103,28 +129,46 @@ export function renderAgentMenu() {
   if (!menu) return;
   const s = t().agent;
   menu.innerHTML = "";
-  menu.append(menuRow("", s.none, s.noneDesc)); // the "no agent" default
-  (S.AGENTS || []).forEach((a) => menu.append(menuRow(a.id, a.label, a.description || scopeLine(a))));
-  if (!S.AGENTS.length) {
-    const hint = el("div", "agent-menu-empty", escapeHtml(s.empty));
-    menu.append(hint);
+  menu.append(menuRow("", s.none, s.noneDesc, () => pick("", ""))); // the default
+
+  if ((S.AGENTS || []).length) {
+    menu.append(el("div", "agent-menu-head", escapeHtml(s.agentsHead)));
+    S.AGENTS.forEach((a) =>
+      menu.append(menuRow(`ag:${a.id}`, a.label, a.description || scopeLine(a), () => pick(a.id, ""))),
+    );
+  }
+  if ((S.WORKFLOWS || []).length) {
+    menu.append(el("div", "agent-menu-head", escapeHtml(s.workflowsHead)));
+    S.WORKFLOWS.forEach((w) => {
+      const n = (w.nodes || []).length;
+      const desc = w.description || `${n} ${n === 1 ? s.agentOne : s.agentMany}`;
+      menu.append(menuRow(`wf:${w.id}`, w.label, desc, () => pick("", w.id)));
+    });
+  }
+  if (!(S.AGENTS || []).length && !(S.WORKFLOWS || []).length) {
+    menu.append(el("div", "agent-menu-empty", escapeHtml(s.empty)));
   }
   renderMenuActive();
 }
 
-function pickAgent(id) {
+function pick(agentId, workflowId) {
   closeMenu();
-  if (S.agentLocked || (id || "") === (S.agent || "")) return;
-  setAgent(id);
+  if (S.agentLocked) return;
+  if ((agentId || "") === (S.agent || "") && (workflowId || "") === (S.workflow || "")) return;
+  if (workflowId) setWorkflow(workflowId);
+  else setAgent(agentId);
+  // Persist the (single) selection.
   if (S.agent) localStorage.setItem("athena_agent", S.agent);
   else localStorage.removeItem("athena_agent");
+  if (S.workflow) localStorage.setItem("athena_workflow", S.workflow);
+  else localStorage.removeItem("athena_workflow");
   renderEmpty(); // refresh the welcome copy for the new frame
 }
 
 // --- menu open/close ------------------------------------------------------
 function openMenu() {
   if (S.agentLocked) return;
-  renderAgentMenu(); // pick up agents added in the dashboard since last open
+  renderAgentMenu(); // pick up agents/workflows added in the dashboard since last open
   $("agent-menu").hidden = false;
   $("agent-picker-btn").setAttribute("aria-expanded", "true");
   setTimeout(() => document.addEventListener("click", onDocClick), 0);

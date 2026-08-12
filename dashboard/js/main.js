@@ -7,6 +7,7 @@ import { loadWorkspace } from "./workspace.js";
 import { loadDocs } from "./docs.js";
 import { loadVoices } from "./voices.js";
 import { loadAgents } from "./agents.js";
+import { loadWorkflows } from "./workflows.js";
 import { loadMcp, refreshMcpServers } from "./mcp.js";
 import "./jobs.js"; // imported for its button wiring (Fetch / Build)
 
@@ -28,6 +29,7 @@ function activateTab(name, { push = true } = {}) {
   if (name === "mcp") refreshMcpServers(); // discover servers lazily
   if (name === "voices") loadVoices(); // refresh the voice library lazily
   if (name === "agents") loadAgents(); // refresh agents + their building blocks lazily
+  if (name === "workflows") loadWorkflows(); // refresh workflows + available agents lazily
 }
 
 const tabEls = [...document.querySelectorAll(".tab")];

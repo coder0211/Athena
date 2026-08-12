@@ -10,6 +10,7 @@ class ConversationCreate(BaseModel):
     mode: str = "business"  # 'business' | 'technical'
     lang: str = "en"  # 'en' | 'vi'
     agent: str = ""  # optional agent id the chat was started with
+    workflow: str = ""  # optional workflow id the chat was started with
 
 
 class ConversationRename(BaseModel):
@@ -27,5 +28,6 @@ class AskStreamRequest(BaseModel):
     mode: str = "business"
     lang: str = "en"
     agent: str = ""  # optional agent id — applies a saved persona + scope + toolset
+    workflow: str = ""  # optional workflow id — chains several agents (wins over agent)
     regenerate: bool = False  # replace the last answer instead of adding a new turn
     edit: bool = False  # with regenerate: also rewrite the last user turn to `question`

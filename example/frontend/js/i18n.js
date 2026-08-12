@@ -95,13 +95,17 @@ export const I18N = {
       none: "No agent",
       noneDesc: "Plain answer in the default voice.",
       empty: "No agents yet. Create them in the dashboard's Agents tab.",
+      agentsHead: "Agents",
+      workflowsHead: "Workflows",
+      agentOne: "agent",
+      agentMany: "agents",
       allRepos: "all repos",
       locked: "Agent is locked for this conversation — start a new chat to switch.",
       governsType: "The selected agent sets the answer type.",
     },
     repoStarter: "How does the {repo} app work?",
     reconnecting: "Connection dropped — reconnecting…",
-    trace: { working: "Investigating…", done: "Looked at", steps: "steps", step: "step" },
+    trace: { working: "Investigating…", running: "Running", done: "Looked at", steps: "steps", step: "step" },
     sourceLoading: "Opening…",
     sourceError: "Couldn't open this passage.",
     closeLabel: "Close",
@@ -250,13 +254,17 @@ export const I18N = {
       none: "Không dùng agent",
       noneDesc: "Trả lời thường với giọng mặc định.",
       empty: "Chưa có agent. Tạo trong tab Agents của dashboard.",
+      agentsHead: "Agents",
+      workflowsHead: "Workflows",
+      agentOne: "agent",
+      agentMany: "agent",
       allRepos: "mọi repo",
       locked: "Agent đã khoá cho cuộc trò chuyện này — mở trò chuyện mới để đổi.",
       governsType: "Agent đang chọn sẽ quyết định kiểu trả lời.",
     },
     repoStarter: "App {repo} hoạt động thế nào?",
     reconnecting: "Mất kết nối — đang kết nối lại…",
-    trace: { working: "Đang tìm hiểu…", done: "Đã tra cứu", steps: "bước", step: "bước" },
+    trace: { working: "Đang tìm hiểu…", running: "Đang chạy", done: "Đã tra cứu", steps: "bước", step: "bước" },
     sourceLoading: "Đang mở…",
     sourceError: "Không mở được đoạn tài liệu này.",
     closeLabel: "Đóng",
@@ -317,4 +325,14 @@ export const I18N = {
 };
 
 export const t = () => I18N[S.lang] || I18N.en;
-export const statusLabel = (tool) => t().status[tool] || t().status._default;
+// A friendly label for a tool step. Built-in graph tools map to a localized
+// status; third-party MCP tools (named `mcp__<server>__<tool>`) aren't in the map,
+// so surface their server + tool name instead of the generic fallback.
+export const statusLabel = (tool) => {
+  if (typeof tool === "string" && tool.startsWith("mcp__")) {
+    const [server, ...rest] = tool.slice(5).split("__");
+    const name = rest.join("__") || server;
+    return `${server} · ${name}`;
+  }
+  return t().status[tool] || t().status._default;
+};

@@ -74,6 +74,13 @@ def agents_path() -> Path:
     return _resolve(os.environ.get("ATHENA_AGENTS"), CONFIG_DIR / "agents.yaml")
 
 
+def workflows_path() -> Path:
+    """config/workflows.yaml — user-defined workflows (ATHENA_WORKFLOWS). A workflow
+    wires saved agents into a directed graph (nodes = agents, edges = execution
+    order); running it feeds each step's answer into its successors."""
+    return _resolve(os.environ.get("ATHENA_WORKFLOWS"), CONFIG_DIR / "workflows.yaml")
+
+
 def docs_root() -> Path:
     """Root under which dashboard uploads are stored + scanned (ATHENA_DOCS)."""
     return _resolve(os.environ.get("ATHENA_DOCS"), PROJECT_ROOT / ".docs")

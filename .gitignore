@@ -225,6 +225,7 @@ config/docs.yaml
 config/personas.yaml
 config/mcp_servers.json
 config/agents.yaml
+config/workflows.yaml
 
 .sources
 .knowledge
