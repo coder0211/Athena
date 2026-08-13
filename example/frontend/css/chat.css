@@ -251,8 +251,8 @@
     max-width: 90%;
   }
   .msg-foot {
-    width: 90%;
-    max-width: 90%;
+    width: 100%;
+    max-width: 100%;
   }
   .composer {
     padding: 10px 12px;
@@ -630,8 +630,10 @@
   gap: 10px;
   margin-top: 7px;
   padding-left: 2px;
-  width: 82%; /* span the bubble width so the actions anchor to its right edge */
-  max-width: 82%;
+  /* Match the assistant bubble (max-width: 100%) so the token count + copy /
+     regenerate actions anchor to the answer's right edge, not short of it. */
+  width: 100%;
+  max-width: 100%;
 }
 /* Document sources the answer was drawn from — sit on the left of the footer
    row so the copy/regenerate actions can anchor to the bottom-right. */
