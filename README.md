@@ -9,7 +9,7 @@ questions about how the product works in plain language.**
 
 <p align="center"><img src="example/screenshot.png" alt="Athena chat UI answering “How does a user sign up and log in?” with a step-by-step business explanation and an expandable investigation trace" width="880" /></p>
 
-<p align="center"><em>Asking a plain-language question — Athena searches the graph, reads the real source, and explains it step by step, showing every step it took. (Demo indexed on the open-source <a href="https://github.com/fastapi/full-stack-fastapi-template">full-stack-fastapi-template</a>.)</em></p>
+<p align="center"><em>Asking a plain-language question — Athena searches the graph, reads the real source, and explains it step by step, showing every step it took.</em></p>
 
 Athena ingests your Git repositories — and, optionally, your product documents
 (specs, PDFs, spreadsheets) — extracts their structure (symbols, call/reference
@@ -17,7 +17,11 @@ edges, concept communities), and serves it over one shared query engine: a
 **management dashboard**, a **chat app** with saved history, an **HTTP API**, and
 an **MCP server**. The natural-language Q&A reads the _real_ source code — and the
 docs you upload — and explains it for whatever audience you need, from business
-stakeholders to developers (and any custom "type" you define).
+stakeholders to developers. Compose that reasoning from three reusable building
+blocks: **voices** (how an answer reads), **agents** (a voice bundled with a
+knowledge scope, an allowed toolset, and model settings), and **workflows** (agents
+chained into a pipeline) — all authored in the dashboard and picked with one click
+in chat.
 
 ---
 
@@ -31,10 +35,20 @@ stakeholders to developers (and any custom "type" you define).
   agent ran and the file/symbol it read, so claims are traceable; it collapses to a
   one-line "Looked at N steps" you can expand. Each answer also shows the **tokens**
   it used, so the cost of a question is never a mystery.
-- **Answer types you can extend** — built-in **Business** (non-technical, no jargon)
-  and **Technical** (call paths, files, snippets), plus your own (Sales, Marketing,
-  Support, …): describe the reader and Athena writes the instruction, greeting,
-  starter questions, and one-tap refine buttons — all editable. Pick a type per chat.
+- **Voices you can extend** — how an answer reads: built-in **Business**
+  (non-technical, no jargon) and **Technical** (call paths, files, snippets), plus
+  your own (Sales, Marketing, Support, …). Describe the reader and Athena writes the
+  instruction, greeting, starter questions, and one-tap refine buttons — all editable
+  in the dashboard's **Voices** tab.
+- **Agents — a saved setup, one click** — bundle a voice + a **knowledge scope**
+  (which repos/documents it reads) + an **allowed toolset** (graph tools + MCP
+  servers) + **model settings** into one named agent. Pick it in chat to apply the
+  whole configuration at once — e.g. a "Security auditor" scoped to your backend, or
+  an "Onboarding buddy" in the Business voice.
+- **Workflows — chain agents into a pipeline** — wire agents on a drag-and-drop
+  canvas (nodes = agents, arrows = execution order). Running one feeds each step's
+  answer to the next as context and streams a **single final result**, with live
+  per-step progress in the trace.
 - **Streaming, with next steps** — answers stream token by token with live status;
   each one offers **suggested follow-ups**, per-type **one-tap refinements**,
   regenerate, and edit-&-resend.
@@ -50,12 +64,13 @@ stakeholders to developers (and any custom "type" you define).
 - **Built for reading** — Markdown + syntax-highlighted code, rendered **Mermaid**
   diagrams (with fullscreen zoom), copy / **export to Markdown**, a `⌘/Ctrl-K`
   command palette, and English / Tiếng Việt UI + response language.
-- **Management dashboard** — add repos, build the graph (with **live progress** as
-  it fetches, extracts, clusters, and indexes), describe repos and their
-  **relations** (so cross-repo questions work), upload documents, and browse the
-  graph. A guided **first-run checklist** walks a new install to its first answer,
-  and **Clear graph data** wipes the built graph to start over (your repos and
-  uploads stay).
+- **Management dashboard** — grouped into **Knowledge** (Repositories, Documents,
+  MCP, Workspace) and **Assistants** (Voices, Agents, Workflows). Add repos, build
+  the graph (with **live progress** as it fetches, extracts, clusters, and indexes),
+  describe repos and their **relations** (so cross-repo questions work), upload
+  documents, and author the voices/agents/workflows chat draws on. A guided
+  **first-run checklist** walks a new install to its first answer, and **Clear graph
+  data** wipes the built graph to start over (your repos and uploads stay).
 - **Saved history** — conversations persist server-side (SQLite); a sidebar lets you
   revisit, rename, and delete past chats.
 - **Structured access too** — the same graph powers a **REST API** and an **MCP
@@ -69,11 +84,12 @@ callees to keep browsing.
 
 <p align="center"><img src="example/code-explorer.png" alt="A technical answer citing files and symbols, with the real source of the Login component open in a side panel" width="900" /></p>
 
-**Manage it from one place.** The dashboard is where you add repositories and run
-the build pipeline — with live per-stage progress, a first-run checklist for a
-fresh install, and a **Clear graph data** action to start over — browse the
-documents you've indexed, map how your repos relate (for cross-repo answers), and
-connect third-party MCP tools.
+**Manage it from one place.** The dashboard groups everything into **Knowledge**
+(the sources Athena reasons over) and **Assistants** (how it reasons). Add
+repositories and run the build pipeline — with live per-stage progress, a first-run
+checklist for a fresh install, and a **Clear graph data** action to start over —
+browse the documents you've indexed, map how your repos relate (for cross-repo
+answers), and connect third-party MCP tools.
 
 <table>
   <tr>
@@ -86,9 +102,19 @@ connect third-party MCP tools.
   </tr>
 </table>
 
-> The screenshots above are a live demo indexed on the open-source
-> [full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template)
-> (the Workspace map adds two illustrative service nodes).
+**Compose the reasoning.** The **Assistants** group is where you author what chat
+draws on — the voices an answer is written in, agents that bundle a voice with a
+scope + toolset + model, and workflows that chain agents into a pipeline.
+
+<table>
+  <tr>
+    <td width="50%"><img src="example/dashboard-agents.png" alt="Agents tab: saved agents, each bundling a voice, a knowledge scope, an allowed toolset, and model settings" /><br/><em>Agents — a voice + scope + toolset + model, saved</em></td>
+    <td width="50%"><img src="example/dashboard-workflows.png" alt="Workflows tab: a drag-and-drop canvas chaining agents into a pipeline, with execution-order arrows" /><br/><em>Workflows — chain agents on a drag-and-drop canvas</em></td>
+  </tr>
+</table>
+
+> The screenshots above are a live demo indexed on the open-source RealWorld
+> ("Conduit") example apps — a React front end and an Express API.
 
 ## Architecture
 
@@ -101,6 +127,9 @@ repos (config/sources.yaml)
                └─ L5 GraphQuery  ── MCP server   (src/query/server.py)
                                  ├─ HTTP API      (src/api/app.py, OpenAI Q&A)
                                  └─ NL Q&A        (src/query/ask.py)
+                                      voices      (src/query/personas.py)
+                                      agents      (src/query/agents.py — voice+scope+tools+model)
+                                      workflows   (src/query/workflows.py — agents chained)
 
 documents (uploads / config/docs.yaml)
    └─ L2 docs ingest   docx·pdf·csv·xls → passages, embedded, linked to code
@@ -199,7 +228,9 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | `ATHENA_ASK_MODEL`           | `gpt-4.1-nano`           | Any tool-capable model on your provider.                                  |
 | `ATHENA_EMBED_MODEL`         | `text-embedding-3-small` | Embedding model for document search (falls back to BM25 if no API key).   |
 | `ATHENA_GRAPH`               | `.knowledge/graph.json`  | Path to the built graph.                                                  |
-| `ATHENA_PERSONAS`            | `config/personas.yaml`   | Path to custom answer types (personas).                                   |
+| `ATHENA_PERSONAS`            | `config/personas.yaml`   | Path to custom voices (answer types / personas).                          |
+| `ATHENA_AGENTS`              | `config/agents.yaml`     | Path to saved agents (voice + scope + toolset + model bundles).           |
+| `ATHENA_WORKFLOWS`           | `config/workflows.yaml`  | Path to workflows (agents chained into a pipeline).                       |
 | `ATHENA_TEMPERATURE`         | `0.3`                    | Q&A sampling temperature; `none` to omit (reasoning models).              |
 | `ATHENA_MAX_TOKENS`          | `2048`                   | Max tokens for a Q&A answer.                                              |
 | `ATHENA_TOKENS_PARAM`        | `max_tokens`             | Token-limit param name (`max_completion_tokens` for o-series/gpt-5).      |
@@ -212,40 +243,62 @@ Copy `example.env` to `.env` (loaded automatically by the API and MCP server).
 | `ATHENA_PATH_MAX_LEN`        | `20`                     | Default max hops for shortest-path search.                                |
 | `ATHENA_MCP_ALLOW_STDIO`     | `1`                      | Allow local (stdio) MCP servers; `0` = remote http servers only.          |
 
-## Answer types
+## Voices, agents & workflows
 
-Every answer is written for a **type** — an audience with its own voice and answer
-shape. Two ship built in: **Business** (a plain-language product story) and
-**Technical** (a precise code walkthrough). Add your own from the chat UI's type
-picker → **Create new type**: describe the reader in one line and Athena generates
-the instruction, a greeting, starter questions, and one-tap refine buttons — all
-editable before you save. The shared investigation rigor, completeness bar, and
-diagram rules wrap every type automatically, so a new type only defines its voice
-and structure. Custom types persist to `config/personas.yaml` (see
-[`config/personas.example.yaml`](config/personas.example.yaml)) and are served over
-the `/api/personas` endpoints, so an editor or agent can manage them too.
+Reasoning is composed from three building blocks, all authored in the dashboard's
+**Assistants** group and picked with one click in chat.
+
+**Voices** decide _how_ an answer reads. Two ship built in — **Business** (a
+plain-language product story) and **Technical** (a precise code walkthrough) — and
+you add your own in the **Voices** tab: describe the reader in one line and Athena
+generates the instruction, greeting, starter questions, and one-tap refine buttons,
+all editable. The shared investigation rigor, completeness bar, and diagram rules
+wrap every voice automatically, so a new voice only defines its tone and structure.
+Voices persist to `config/personas.yaml` (see
+[`config/personas.example.yaml`](config/personas.example.yaml)).
+
+**Agents** decide _who_ is answering and _what_ it may use. An agent bundles a base
+voice + a **knowledge scope** (which repos/documents it reads) + an **allowed
+toolset** (built-in graph tools + which MCP servers) + **model settings**
+(model/temperature/step budget) into one saved configuration. Selecting an agent in
+chat applies that whole setup at once, instead of re-picking a voice, scoping repos,
+and choosing tools every time. Agents persist to `config/agents.yaml`.
+
+**Workflows** chain agents into a pipeline. Build one on a drag-and-drop canvas
+(nodes = agents, arrows = execution order); running it walks the graph in dependency
+order, feeds each step's answer to its successors as context, and streams a single
+final answer — with live per-step progress in the trace. Workflows persist to
+`config/workflows.yaml`. All three are served over `/api/personas`, `/api/agents`,
+and `/api/workflows`, so an editor or agent can manage them too.
 
 ## HTTP API
 
-| Method  | Path                                     | Purpose                                       |
-| ------- | ---------------------------------------- | --------------------------------------------- |
-| GET     | `/api/status`                            | graph stats, repos, whether Q&A is available  |
-| GET/PUT | `/api/sources`                           | read / write `config/sources.yaml`            |
-| POST    | `/api/fetch` · `/api/build`              | start pipeline jobs → `{job_id}`              |
-| GET     | `/api/jobs/{id}`                         | job status + live stage progress              |
-| DELETE  | `/api/graph`                             | clear the built graph (keeps repos & uploads) |
-| GET     | `/api/search?q=&repo=&type=`             | symbol search                                 |
-| GET     | `/api/symbol/{id}` · `/api/impact/{id}`  | detail · blast radius                         |
-| GET     | `/api/communities?q=`                    | concept clusters                              |
-| GET     | `/api/docs`                              | list indexed documents                        |
-| POST    | `/api/docs/upload` · `/api/docs/reindex` | upload a file · reindex the docs layer        |
-| GET     | `/api/docs/search?q=`                    | search document passages                      |
-| POST    | `/api/ask` `{question}`                  | natural-language answer (+ tool trace)        |
-| POST    | `/api/ask/stream` `{question}`           | same, streamed as Server-Sent Events          |
-| GET     | `/api/personas`                          | list answer types (built-in + custom)         |
-| POST    | `/api/personas`                          | create / update a custom type                 |
-| DELETE  | `/api/personas/{id}`                     | delete a custom type                          |
-| POST    | `/api/personas/generate` `{description}` | draft a type's instruction from a description |
+| Method  | Path                                     | Purpose                                        |
+| ------- | ---------------------------------------- | ---------------------------------------------- |
+| GET     | `/api/status`                            | graph stats, repos, whether Q&A is available   |
+| GET/PUT | `/api/sources`                           | read / write `config/sources.yaml`             |
+| POST    | `/api/fetch` · `/api/build`              | start pipeline jobs → `{job_id}`               |
+| GET     | `/api/jobs/{id}`                         | job status + live stage progress               |
+| DELETE  | `/api/graph`                             | clear the built graph (keeps repos & uploads)  |
+| GET     | `/api/search?q=&repo=&type=`             | symbol search                                  |
+| GET     | `/api/symbol/{id}` · `/api/impact/{id}`  | detail · blast radius                          |
+| GET     | `/api/communities?q=`                    | concept clusters                               |
+| GET     | `/api/docs`                              | list indexed documents                         |
+| POST    | `/api/docs/upload` · `/api/docs/reindex` | upload a file · reindex the docs layer         |
+| GET     | `/api/docs/search?q=`                    | search document passages                       |
+| POST    | `/api/ask` `{question[,agent,workflow]}` | natural-language answer (+ tool trace)         |
+| POST    | `/api/ask/stream` `{…}`                  | same, streamed as Server-Sent Events           |
+| GET     | `/api/personas`                          | list voices (built-in + custom)                |
+| POST    | `/api/personas`                          | create / update a custom voice                 |
+| DELETE  | `/api/personas/{id}`                     | delete a custom voice                          |
+| POST    | `/api/personas/generate` `{description}` | draft a voice's instruction from a description |
+| GET     | `/api/agents` · `/api/agents/tools`      | list agents · list the building blocks         |
+| POST    | `/api/agents`                            | create / update an agent                       |
+| DELETE  | `/api/agents/{id}`                       | delete an agent                                |
+| GET     | `/api/workflows`                         | list workflows                                 |
+| POST    | `/api/workflows`                         | create / update a workflow                     |
+| DELETE  | `/api/workflows/{id}`                    | delete a workflow workflow                     |
+| DELETE  | `/api/workflows/{id}`                    | delete a workflow                              |
 
 The chat app (`example/backend`, :8100) adds conversation + history endpoints
 (`/api/conversations…`) on top of this API — see
@@ -343,11 +396,13 @@ src/
   query/
     engine.py          GraphQuery — the shared query surface
     ask.py             natural-language Q&A (agentic, streaming)
-    personas.py        answer "types" (personas) — registry + generator
+    personas.py        voices (answer "types") — registry + generator
+    agents.py          agents — voice + scope + toolset + model bundles
+    workflows.py       workflows — agents chained into a pipeline + runner
     server.py          MCP server
   api/app.py           FastAPI HTTP API + management dashboard host (:8000)
-dashboard/             management web UI — repos, workspace, build (served by the API)
-  index.html · css/ · js/
+dashboard/             management web UI (served by the API) — Knowledge (repos,
+  index.html · css/ · js/    docs, MCP, workspace) + Assistants (voices, agents, workflows)
 example/
   frontend/            chat web UI (ES modules + CSS)
   backend/             chat service — conversations + history in SQLite (:8100)
@@ -364,3 +419,4 @@ vulnerability privately. Notable changes are recorded in
 ## License
 
 Released under the MIT License — see [`LICENSE`](LICENSE).
+
