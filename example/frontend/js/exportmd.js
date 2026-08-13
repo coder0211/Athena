@@ -10,7 +10,7 @@ function conversationMarkdown() {
   const lines = [`# ${title}`, ""];
   S.history.forEach((m) => {
     if (!m.content) return;
-    lines.push(m.role === "user" ? "## 🧑 " + t().youLabel : "## 🦉 Athena");
+    lines.push(m.role === "user" ? "## " + t().youLabel : "## Athena");
     lines.push("", m.content.trim(), "");
   });
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";

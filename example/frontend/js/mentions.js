@@ -1,7 +1,7 @@
 // @repo / #symbol autocomplete in the composer. Detects a mention being typed,
 // fetches symbol matches (debounced, cached, race-guarded), and inserts the
 // picked item as a scope chip.
-import { $, el, escapeHtml } from "./dom.js";
+import { $, el, escapeHtml, ICON_DOC, ICON_FOLDER } from "./dom.js";
 import { S } from "./state.js";
 import { t } from "./i18n.js";
 import { apiGet } from "./api.js";
@@ -80,13 +80,15 @@ export async function updateMentions() {
     const folders = docFolders()
       .filter((f) => fold(f.label).includes(q))
       .map((f) => ({
-        label: "📁 " + f.label,
+        icon: ICON_FOLDER,
+        label: f.label,
         sub: `folder · ${f.count} doc(s)`,
         kind: "folder",
         value: { path: f.path, label: f.label },
       }));
     const docs = S.DOCS.filter((d) => fold(d.name).includes(q)).map((d) => ({
-      label: "📄 " + d.name,
+      icon: ICON_DOC,
+      label: d.name,
       sub: [d.file_type, d.sections ? d.sections + " sections" : ""].filter(Boolean).join(" · "),
       kind: "doc",
       value: { id: d.id, name: d.name },
@@ -145,7 +147,7 @@ function renderMentionList(items) {
     const row = el(
       "div",
       "mention-item" + (i === S.mentionActive ? " active" : ""),
-      `<span class="mi-label">${escapeHtml(it.label)}</span>` +
+      `<span class="mi-label">${it.icon ? it.icon + " " : ""}${escapeHtml(it.label)}</span>` +
         (it.sub ? `<span class="sub">${escapeHtml(it.sub)}</span>` : ""),
     );
     row.title = it.label + (it.sub ? " — " + it.sub : "");

@@ -12,6 +12,8 @@ import {
   ICON_EDIT,
   ICON_EXTERNAL,
   ICON_FOLLOWUP,
+  ICON_DOC,
+  ICON_FOLDER,
 } from "./dom.js";
 import { S } from "./state.js";
 import { t } from "./i18n.js";
@@ -148,8 +150,8 @@ export function addUser(text, scope) {
     const tags = el("div", "msg-scope");
     scope.repos.forEach((r) => tags.append(el("span", "mtag", "/" + r)));
     scope.symbols.forEach((s) => tags.append(el("span", "mtag", "#" + s.name)));
-    folders.forEach((f) => tags.append(el("span", "mtag doc", "📁 " + f.label)));
-    docs.forEach((d) => tags.append(el("span", "mtag doc", "📄 " + d.name)));
+    folders.forEach((f) => tags.append(el("span", "mtag doc", ICON_FOLDER + " " + escapeHtml(f.label))));
+    docs.forEach((d) => tags.append(el("span", "mtag doc", ICON_DOC + " " + escapeHtml(d.name))));
     tools.forEach((t) => tags.append(el("span", "mtag tool", "@" + t.label)));
     bubble.append(tags);
   }
@@ -345,12 +347,12 @@ export function pruneFollowups() {
   boxes.slice(0, -1).forEach((b) => b.remove());
 }
 
-// The "📄 Nguồn:" row — one chip per document passage the answer was drawn from,
+// The sources row — one chip per document passage the answer was drawn from,
 // labelled "Document › Section". Tooltip shows the file path.
 function buildSources(sources) {
   if (!sources?.length) return null;
   const row = el("div", "sources");
-  row.append(el("span", "sources-label", "📄 " + t().sourcesLabel));
+  row.append(el("span", "sources-label", ICON_DOC + " " + escapeHtml(t().sourcesLabel)));
   sources.forEach((s) => {
     const doc = s.document || s.path || "document";
     const sec = s.title || s.locator;

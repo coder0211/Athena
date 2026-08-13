@@ -243,3 +243,5 @@ example/backend/data/
 *.db
 *.db-wal
 *.db-shm
+# Local backup of original demo config/graph (may contain secrets) — never commit
+.demo-backup/
