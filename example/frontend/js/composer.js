@@ -82,6 +82,7 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
   let row = null;
   let bubble = null;
   let trace = null; // investigation trace (created when the first tool runs)
+  let traceWrap = null; // centred wrapper holding the live trace until the answer row exists
   let acc = "";
   let steps = [];
   let sources = [];
@@ -96,16 +97,23 @@ async function runAsk({ question, scope }, { regenerate = false, edit = false } 
     typing.remove();
     row = el("div", "chat-msg assistant");
     bubble = el("div", "bubble");
-    if (trace) row.append(trace.node); // move the live trace above the answer
+    if (trace) {
+      row.append(trace.node); // move the live trace above the answer …
+      traceWrap?.remove(); // … and drop its now-empty streaming wrapper
+      traceWrap = null;
+    }
     row.append(bubble);
     $("messages").append(row);
   };
   // Show the trace as soon as Athena runs its first tool — above the still-visible
-  // typing indicator until the answer row takes over.
+  // typing indicator until the answer row takes over. Wrapped in a .chat-msg so it
+  // sits in the centred reading column, not flush against the pane's left edge.
   const ensureTrace = () => {
     if (trace) return;
     trace = createTrace();
-    typing.before(trace.node);
+    traceWrap = el("div", "chat-msg assistant");
+    traceWrap.append(trace.node);
+    typing.before(traceWrap);
   };
   // Re-rendering the whole markdown on every SSE token is expensive and janky;
   // coalesce renders to at most one per animation frame.

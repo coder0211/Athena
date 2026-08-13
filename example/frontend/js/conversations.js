@@ -1,6 +1,6 @@
 // Conversation history sidebar: list, open, delete, rename, and New chat.
 // Talks to the backend's /api/conversations* endpoints.
-import { $, el, escapeHtml, ICON_EDIT } from "./dom.js";
+import { $, el, escapeHtml, ICON_EDIT, askConfirm } from "./dom.js";
 import { S } from "./state.js";
 import { t } from "./i18n.js";
 import { apiGet } from "./api.js";
@@ -224,6 +224,15 @@ export async function openConversation(id) {
 }
 
 async function deleteConversation(id) {
+  // Deleting drops the whole thread + history — confirm first (no undo).
+  const ok = await askConfirm({
+    title: t().deleteConvTitle,
+    message: t().deleteConvMsg,
+    ok: t().deleteLabel,
+    cancel: t().cancelLabel,
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await fetch("/api/conversations/" + id, { method: "DELETE" });
   } catch {

@@ -73,11 +73,16 @@ export function renderEmpty() {
 
 // (Re)build the suggestion chips: the given questions first, then one starter per
 // indexed repo so the first run is always relevant to this codebase.
+// Drop a leading emoji/pictograph so starter chips read as clean editorial text.
+const stripLeadingEmoji = (s) =>
+  (s || "").replace(/^\s*(?:\p{Extended_Pictographic}️?\s*)+/u, "").trim();
+
 function renderSuggestions(questions) {
   const box = $("suggestions");
   if (!box) return;
   box.innerHTML = "";
-  (questions || []).forEach((q) => {
+  (questions || []).forEach((raw) => {
+    const q = stripLeadingEmoji(raw);
     const chip = el("button", "suggestion", escapeHtml(q));
     chip.type = "button";
     chip.onclick = () => send(q);
@@ -86,7 +91,7 @@ function renderSuggestions(questions) {
   (S.REPOS || []).slice(0, 4).forEach((repo) => {
     const name = shortRepoName(repo);
     const q = t().repoStarter.replace("{repo}", name);
-    const chip = el("button", "suggestion suggestion-repo", "📦 " + escapeHtml(q));
+    const chip = el("button", "suggestion suggestion-repo", escapeHtml(q));
     chip.type = "button";
     chip.onclick = () => send(q);
     box.append(chip);

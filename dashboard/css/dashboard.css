@@ -381,6 +381,11 @@ main {
 .mcp-code-hl code {
   font: inherit;
   white-space: inherit;
+  /* Reset the inline-code chip styling (base.css) that would otherwise paint a
+     grey band + padding behind the highlighted code. */
+  background: none;
+  padding: 0;
+  border-radius: 0;
 }
 .mcp-json {
   position: relative;
@@ -400,18 +405,19 @@ main {
 .mcp-json::selection {
   background: color-mix(in srgb, var(--accent) 32%, transparent);
 }
-/* JSON token colours */
+/* JSON token colours — muted GitHub-light palette (matches the chat code blocks);
+   colour serves code legibility, keys stay ink. */
 .tok-key {
   color: var(--accent);
 }
 .tok-str {
-  color: var(--ok);
+  color: #0a3069;
 }
 .tok-num {
-  color: #d19a66;
+  color: #0550ae;
 }
 .tok-lit {
-  color: #c678dd;
+  color: #cf222e;
 }
 
 /* Per-server boxes */
@@ -891,10 +897,10 @@ select.agent-input {
   height: 15px;
 }
 .ws-add-repo .ws-node-ico {
-  color: var(--accent);
+  color: var(--text);
 }
 .ws-add-doc .ws-node-ico {
-  color: var(--ok);
+  color: var(--muted);
 }
 .ws-add-empty {
   padding: 8px 10px;
@@ -1047,7 +1053,7 @@ body.ws-fs-lock {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 9px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 4px rgba(24, 24, 26, 0.07);
   cursor: grab;
   user-select: none;
 }
@@ -1058,11 +1064,13 @@ body.ws-fs-lock {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
+/* Node type shown by an ink (repo) vs grey (doc) left rule + the icon shape —
+   no colour needed for the distinction. */
 .ws-node-repo {
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--text);
 }
 .ws-node-doc {
-  border-left: 3px solid var(--ok);
+  border-left: 3px solid var(--muted);
 }
 .ws-node-head {
   display: flex;
@@ -1076,10 +1084,10 @@ body.ws-fs-lock {
   height: 16px;
 }
 .ws-node-repo .ws-node-ico {
-  color: var(--accent);
+  color: var(--text);
 }
 .ws-node-doc .ws-node-ico {
-  color: var(--ok);
+  color: var(--muted);
 }
 .ws-node-name {
   flex: 1;
@@ -1606,15 +1614,12 @@ body.ws-fs-lock {
   display: inline-flex;
   color: var(--muted);
 }
-/* Colour-code file icons by type for quick scanning (IDE-style). */
-.doc-file-ico.ico-doc {
-  color: var(--accent);
-}
-.doc-file-ico.ico-sheet {
-  color: var(--ok);
-}
+/* Monochrome file icons — the type is already shown by the text badge (PDF/CSV…),
+   so ink icons keep the editorial palette instead of a rainbow of file types. */
+.doc-file-ico.ico-doc,
+.doc-file-ico.ico-sheet,
 .doc-file-ico.ico-pdf {
-  color: var(--err);
+  color: var(--muted);
 }
 
 /* Centered empty / placeholder state */
@@ -1744,7 +1749,8 @@ body.ws-fs-lock {
 .modal-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 .modal-label {
   font-size: 12px;
@@ -1769,6 +1775,17 @@ body.ws-fs-lock {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 4px;
+}
+/* In a confirm dialog the destructive action IS the primary choice, so make it
+   solid + prominent (not the quiet ghost used for in-list delete triggers). */
+.modal-actions .btn.small.danger {
+  background: var(--err);
+  color: #fff;
+  border-color: var(--err);
+}
+.modal-actions .btn.small.danger:hover {
+  background: color-mix(in srgb, var(--err) 82%, #000);
+  border-color: color-mix(in srgb, var(--err) 82%, #000);
 }
 .modal-msg {
   margin: 0;
