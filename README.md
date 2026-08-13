@@ -7,9 +7,9 @@
 **Turn your Git repositories into a queryable code knowledge graph — then ask
 questions about how the product works in plain language.**
 
-<p align="center"><img src="example/screenshot.png" alt="Athena chat UI answering “How does a user sign up and log in?” with a step-by-step business explanation and an expandable investigation trace" width="880" /></p>
+<p align="center"><img src="example/athena-demo.gif" alt="Athena chat: a plain-language question triggers a live investigation trace, streams a step-by-step business answer with a generated sequence diagram, then a cited file opens its real source in a side panel" width="880" /></p>
 
-<p align="center"><em>Asking a plain-language question — Athena searches the graph, reads the real source, and explains it step by step, showing every step it took.</em></p>
+<p align="center"><em>One plain-language question → a live investigation trace → a step-by-step answer with a generated diagram → click a citation to open the real source. End to end.</em></p>
 
 Athena ingests your Git repositories — and, optionally, your product documents
 (specs, PDFs, spreadsheets) — extracts their structure (symbols, call/reference
@@ -77,6 +77,12 @@ in chat.
   server** for editors and agents.
 
 ## See it in action
+
+**Ask in plain language.** Athena plans, searches the graph, reads the real source
+(and your docs), and answers step by step — with an expandable investigation trace
+that shows every tool it ran, plus the tokens each answer cost.
+
+<p align="center"><img src="example/screenshot.png" alt="Athena chat answering “How does a user sign up and log in?” with a step-by-step business explanation and a collapsible investigation trace" width="880" /></p>
 
 **Jump straight into the code.** A technical answer cites `path:line` and symbols
 you can click — Athena opens the real source in a side panel, with the callers and
