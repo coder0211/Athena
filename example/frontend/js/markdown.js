@@ -52,11 +52,69 @@ export function formatAnswer(text) {
     .join("");
 }
 
-// Inline markdown: escape, then `code`, [text](url) links, bare URLs, **bold**,
-// *italic*, and ~~strikethrough~~. Links are resolved before the bare-URL pass so
-// a URL already inside an <a href="…"> (preceded by ") isn't linkified twice.
+// Attribute-safe: escapeHtml handles & < > but not quotes, so encode " too before
+// dropping a value into an href/src/alt attribute.
+const attr = (s) => s.replace(/"/g, "&quot;");
+
+// Only Markdown images from a trusted chart host render as <img>; anything else
+// falls back to a plain link, so an answer can't embed an arbitrary remote image.
+// Add your host here (e.g. "charts.mycorp.com") when self-hosting QuickChart.
+const CHART_IMAGE_HOSTS = ["quickchart.io"];
+function isAllowedChartUrl(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return CHART_IMAGE_HOSTS.some((h) => host === h || host.endsWith("." + h));
+  } catch {
+    return false;
+  }
+}
+
+// LLM-written QuickChart configs sometimes carry a stray trailing brace, which
+// QuickChart evaluates and renders as an error *image* (a 200, so no load-error
+// fallback fires). If the `c` config doesn't parse as JSON, try dropping trailing
+// `}`/`]` until it does and rebuild the URL. Only ever touches a config that is
+// already broken, so a valid (incl. non-JSON) config is returned untouched.
+function repairChartUrl(url) {
+  try {
+    const u = new URL(url);
+    const c = u.searchParams.get("c");
+    if (!c) return url;
+    const ok = (x) => {
+      try {
+        JSON.parse(x);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (ok(c)) return url;
+    let t = c;
+    for (let i = 0; i < 6 && /[}\]]$/.test(t); i++) {
+      t = t.slice(0, -1);
+      if (ok(t)) {
+        u.searchParams.set("c", t);
+        return u.toString();
+      }
+    }
+    return url; // unrepairable — leave as-is (QuickChart shows its own message)
+  } catch {
+    return url;
+  }
+}
+
+// Inline markdown: escape, then ![alt](url) images, `code`, [text](url) links,
+// bare URLs, **bold**, *italic*, and ~~strikethrough~~. Images are resolved first
+// so `![…](…)` isn't mistaken for a `[…](…)` link, and links before the bare-URL
+// pass so a URL already inside an <a href="…"> (preceded by ") isn't linkified
+// twice. Images (e.g. QuickChart chart URLs) render as <img>; enhanceImages()
+// later wires click-to-zoom and an offline/link fallback (see images.js).
 function renderInline(s) {
   return escapeHtml(s)
+    .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, (_m, alt, url) =>
+      isAllowedChartUrl(url)
+        ? `<img class="md-img" src="${attr(repairChartUrl(url))}" alt="${attr(alt)}" loading="lazy" referrerpolicy="no-referrer">`
+        : `<a href="${attr(url)}" target="_blank" rel="noopener">${alt || url}</a>`,
+    )
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
     .replace(/(^|[\s(])(https?:\/\/[^\s<]+)/g, (_m, pre, url) => {

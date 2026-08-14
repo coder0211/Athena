@@ -5,6 +5,7 @@ import { S } from "./state.js";
 import { t } from "./i18n.js";
 import { formatAnswer } from "./markdown.js";
 import { renderMermaid } from "./mermaid.js";
+import { enhanceImages } from "./images.js";
 import { enhanceCodeBlocks } from "./codeblocks.js";
 import { enhanceCodeRefs } from "./codeviewer.js";
 import { createTrace } from "./trace.js";
@@ -283,6 +284,7 @@ function finalizeAnswer(row, bubble, acc, steps, sources, followups, usage) {
   enhanceCodeBlocks(bubble); // add copy buttons to fenced code blocks
   enhanceCodeRefs(bubble); // make cited symbols open the code panel
   renderMermaid(bubble); // draw any mermaid diagrams (streaming showed source)
+  enhanceImages(bubble); // zoom + offline fallback for chart/QuickChart images
   row.append(buildFooter(acc, steps, sources, usage));
   row.append(refineRow());
   const fu = renderFollowups(followups);

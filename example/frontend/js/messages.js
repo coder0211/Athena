@@ -19,6 +19,7 @@ import { S } from "./state.js";
 import { t } from "./i18n.js";
 import { formatAnswer } from "./markdown.js";
 import { renderMermaid } from "./mermaid.js";
+import { enhanceImages } from "./images.js";
 import { enhanceCodeBlocks } from "./codeblocks.js";
 import { enhanceCodeRefs } from "./codeviewer.js";
 import { staticTrace } from "./trace.js";
@@ -182,6 +183,7 @@ export function addAssistant(text, steps, isError, sources) {
     enhanceCodeBlocks(bubble);
     enhanceCodeRefs(bubble); // make cited symbols open the code panel
     renderMermaid(bubble);
+    enhanceImages(bubble); // zoom + offline fallback for chart/QuickChart images
     row.append(buildFooter(text, steps, sources)); // restores clickable citations on reload
     row.append(refineRow());
   } else if (S.lastRequest) {

@@ -566,6 +566,70 @@
   background: none;
   text-align: left;
 }
+/* Inline answer images (e.g. QuickChart charts): framed like a diagram block, with
+   corner actions that fade in on hover. Click to open full-size (see images.js). */
+.md-img-block {
+  position: relative;
+  display: inline-block;
+  margin: 8px 0;
+  padding: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 100%;
+}
+.bubble .md-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.bubble .md-img-zoomable {
+  cursor: zoom-in;
+}
+/* Corner action buttons (zoom / open URL / copy URL), mirroring .mermaid-copy. */
+.md-img-btn {
+  position: absolute;
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+.md-img-block:hover .md-img-btn,
+.md-img-btn:focus-visible {
+  opacity: 1;
+}
+.md-img-btn:hover {
+  color: var(--text);
+}
+.md-img-btn.done {
+  color: var(--accent, #3fb950);
+  opacity: 1;
+}
+.md-img-zoom {
+  right: 70px;
+}
+.md-img-open {
+  right: 42px;
+}
+.md-img-copy {
+  right: 14px;
+}
+/* Shown in place of an image that failed to load (offline / unreachable): a plain
+   link to the source so the chart is still reachable. */
+.md-img-fallback a {
+  color: var(--accent, #58a6ff);
+  word-break: break-all;
+}
 /* Fenced code block wrapper: anchors the copy button so it stays put while the
    code scrolls horizontally. */
 .code-block {
@@ -1820,6 +1884,13 @@ body.resizing-panel {
   border-radius: 8px;
   padding: 12px;
   max-width: none; /* natural size — the container scrolls if it's larger */
+  height: auto;
+}
+.lightbox-body img.lightbox-img {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+  max-width: min(92vw, 1100px);
   height: auto;
 }
 

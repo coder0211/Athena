@@ -168,6 +168,33 @@ _DIAGRAM = (
     "identifiers); real class/method/file names for a developer."
 )
 
+# Appended to every audience: the chat UI renders Markdown images, so a QuickChart
+# URL becomes a real chart. Use it for QUANTITATIVE answers — mermaid stays for
+# structure/flow; QuickChart is for numbers. The config must be URL-encoded so the
+# ![](…) image syntax doesn't break on a space or a parenthesis.
+_CHARTS = (
+    "\n\nCHARTS — the chat UI renders any Markdown image, so a QuickChart URL shows "
+    "as a real chart. Use one when the answer is QUANTITATIVE and a picture reads "
+    "faster than prose.\n"
+    "CRITICAL: Mermaid has NO bar/line/pie/doughnut chart — for ANY chart of numeric "
+    "values (counts, amounts, proportions, trends) you MUST use a QuickChart image and "
+    "NEVER a ```mermaid block. Mermaid is only for structure: flowcharts, sequence "
+    "diagrams, and how parts relate. If you catch yourself writing `pie`, `bar`, or "
+    "`xychart` inside a mermaid block, stop and emit a QuickChart image instead.\n"
+    "WHEN: include ONE chart, alongside the prose (never instead of it), when you are "
+    "comparing amounts across categories, showing a distribution/breakdown, a trend "
+    "over time, or proportions. Skip it when you have no real numbers to plot — never "
+    "invent data.\n"
+    "HOW: emit `![<short alt>](https://quickchart.io/chart?c=<config>)` where <config> "
+    "is a compact Chart.js config, URL-ENCODED (encode spaces as %20, `{`→%7B, `}`→%7D, "
+    'quotes→%22, etc.). Example config before encoding: '
+    '{type:"bar",data:{labels:["A","B"],datasets:[{label:"Calls",data:[12,7]}]}}.\n'
+    "RULES: use bar/line/pie/doughnut only; keep it to one dataset and ~3–8 data points; "
+    "always give the chart a title or a short alt so it stands on its own; label axes in "
+    "the same language as the answer. Every number in the chart must come from the code/"
+    "sources you were given — if you can't ground it, describe it in prose instead."
+)
+
 # Generic follow-up voice for personas that don't specify one of their own.
 _FOLLOWUP_VOICE_DEFAULT = (
     "Phrase them the way this reader would naturally ask, matching the voice and focus "
@@ -373,6 +400,7 @@ def system_prompt(persona_id: str | None) -> str:
         + _COMPLETENESS
         + _HONESTY
         + _DIAGRAM
+        + _CHARTS
     )
 
 
